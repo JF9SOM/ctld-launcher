@@ -367,43 +367,39 @@ jobs:
 
           # Fix transitive dylib dependencies using dylibbundler so the
           # binaries load without Homebrew installed on the end user's
-          # machine. Same treatment as FBSAT59's Python-binding-only build,
-          # extended to the CLI daemons/tools.
+          # machine. --install-path is @loader_path (not @loader_path/../deps)
+          # because the final package layout is flat: every dependency dylib
+          # ends up in the same directory as the binary that needs it, not in
+          # a "../deps" subfolder. dylibbundler re-signs each file it touches,
+          # so the fixed originals are already valid Mach-O binaries — no
+          # further install_name_tool/codesign pass is needed after copying
+          # them into the flat package below.
           dylibbundler \
             --bundle-deps \
             --fix-file ${HAMLIB_SO} \
             --dest-dir ${PORTABLE_LIB}/deps \
-            --install-path @loader_path/../deps \
+            --install-path @loader_path \
             --overwrite-dir
           for bin in rigctld rotctld rigctl rotctl; do
             dylibbundler \
               --bundle-deps \
               --fix-file ${PORTABLE_BIN}/${bin} \
               --dest-dir ${PORTABLE_LIB}/deps \
-              --install-path @loader_path/../deps \
+              --install-path @loader_path \
               --overwrite-files
           done
 
-          # Package flat: all dylibs + Hamlib.py + _Hamlib.so + CLI tools in
-          # one directory
+          # Package flat: Hamlib.py + _Hamlib.so + CLI tools + every bundled
+          # dependency dylib (from lib/deps/, populated by dylibbundler above —
+          # NOT lib/*.dylib, which is only libhamlib itself and misses libusb)
           PKG="hamlib-macos-${ARCH}-${PYTAG}-${HAMLIB_VER}"
           mkdir -p ${PKG}
           cp ${PORT_PYSITE}/Hamlib.py ${PKG}/
           cp ${PORT_PYSITE}/_Hamlib${PY_EXT} ${PKG}/
-          cp ${PORTABLE_LIB}/*.dylib ${PKG}/ 2>/dev/null || true
+          cp ${PORTABLE_LIB}/deps/*.dylib ${PKG}/
           for bin in rigctld rotctld rigctl rotctl; do
             cp ${PORTABLE_BIN}/${bin} ${PKG}/
             chmod +x ${PKG}/${bin}
-          done
-          # Fix rpath inside each binary to point to @loader_path (flat layout).
-          # install_name_tool invalidates the ad-hoc code signature dylibbundler
-          # just applied; on Apple Silicon an unsigned/invalidated binary is
-          # killed by the kernel at launch, so re-sign (ad-hoc) afterwards —
-          # this matters for the shipped bundle running on end-user Macs, not
-          # just for the sanity check below.
-          for f in "${PKG}/_Hamlib${PY_EXT}" "${PKG}/rigctld" "${PKG}/rotctld" "${PKG}/rigctl" "${PKG}/rotctl"; do
-            install_name_tool -add_rpath @loader_path "$f" 2>/dev/null || true
-            codesign --force --sign - "$f"
           done
           echo "${HAMLIB_VER}" > ${PKG}/version.txt
 
