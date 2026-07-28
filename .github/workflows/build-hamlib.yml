@@ -51,7 +51,7 @@ jobs:
           sudo apt-get install -y \
             autoconf automake libtool pkg-config \
             libusb-1.0-0-dev libxml2-dev swig python3.11-dev \
-            binutils coreutils
+            binutils coreutils patchelf
 
       - name: Build Hamlib from source
         run: |
@@ -65,30 +65,31 @@ jobs:
           PY_INC=$(python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
           PY_EXT=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 
-          # Portable build only (rpath = $ORIGIN so the flat package is
-          # relocatable to any directory on the end user's machine).
-          # `make install` also produces bin/rigctld, bin/rotctld, bin/rigctl,
-          # bin/rotctl — no special configure flag is needed for these.
+          # Portable build (relocatable to any directory on the end user's
+          # machine). `make install` also produces bin/rigctld, bin/rotctld,
+          # bin/rigctl, bin/rotctl — no special configure flag needed for these.
+          #
+          # Deliberately NOT passing -Wl,-rpath,$ORIGIN via LDFLAGS to
+          # ./configure: libtool mishandles a literal "$ORIGIN" (or the
+          # doubled "$$ORIGIN" needed to survive Make's own recursive
+          # variable re-expansion) inside its own -Wl,-rpath argument
+          # splitting, which corrupted the LINK of libhamlib.la itself
+          # ("ld: cannot find libhamlib.so.4") in earlier attempts here.
+          # Instead, build with the (libtool-default, build-tree-absolute)
+          # rpath and rewrite it afterwards with patchelf — this sidesteps
+          # Make/libtool's shell-quoting entirely.
           cd hamlib-${HAMLIB_VER}
-          # LDFLAGS is doubled ($$ORIGIN) because it goes through `make`:
-          # Make recursively re-expands variable values when a recipe
-          # references $(LDFLAGS), so a single "$ORIGIN" is parsed as the
-          # one-letter make variable $O (empty/undefined) followed by
-          # literal "RIGIN" — corrupting the embedded RUNPATH so rigctld
-          # can't find libhamlib.so.4 at runtime. $$ORIGIN survives Make's
-          # expansion as a literal single $ORIGIN, which is what the linker
-          # (and later the dynamic loader) need to see. This does not apply
-          # to the direct `gcc -Wl,-rpath,$ORIGIN` invocation for _Hamlib.so
-          # below, since that command never passes through Make.
           ./configure \
             --prefix=/tmp/hamlib-portable \
-            --disable-static \
-            LDFLAGS="-Wl,-rpath,\$\$ORIGIN"
+            --disable-static
           make -j$(nproc)
           make install
           cd ..
 
           echo "=== /tmp/hamlib-portable/bin ===" && ls /tmp/hamlib-portable/bin/
+          for bin in rigctld rotctld rigctl rotctl; do
+            patchelf --set-rpath '$ORIGIN' /tmp/hamlib-portable/bin/${bin}
+          done
 
           # Generate SWIG Python wrapper from .swg sources (used by the GUI
           # to enumerate rig/rotator models dynamically instead of hardcoding)
