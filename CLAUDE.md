@@ -45,9 +45,13 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 6. OS別自動起動(ログイン時)
 7. パッケージング(AppImage/NSIS/dmg)
 
+## CI
+
+- `.github/workflows/ci.yml` — push/PR(mainブランチ)ごとにruff(lint+format check)/mypy/pytestを実行。Hamlibのインストールは不要(テストは`_fake_ctld.py`/`_fake_hamlib_list.py`等のフェイクスクリプトで完結し、実バインディングに依存しない)。
+- `.github/workflows/build-hamlib.yml` — hamlib-bundleの生成(手動起動)。
+
 ## 既知の未実装事項
 
-- CI: hamlibバンドル以外(lint/mypy/pytest)を回す通常のテストCI(`ci.yml`)がまだ存在しない。これまでのテストはすべてローカル実行で確認している。
 - hamlib実行ファイルの自動ダウンロード(バンドルリリースからの取得・展開)は未実装。現状PATH検索のみ。
 
 ## 関連プロジェクト
