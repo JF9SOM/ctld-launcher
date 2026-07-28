@@ -39,6 +39,7 @@ class Profile:
     debug_level: int = 0
     log_file: str | None = None
     extra_args: list[str] = field(default_factory=list)
+    auto_start: bool = False
 
     @classmethod
     def new_rig(
@@ -52,6 +53,7 @@ class Profile:
         debug_level: int = 0,
         log_file: str | None = None,
         extra_args: list[str] | None = None,
+        auto_start: bool = False,
     ) -> Profile:
         return cls(
             name=name,
@@ -64,6 +66,7 @@ class Profile:
             debug_level=debug_level,
             log_file=log_file,
             extra_args=extra_args or [],
+            auto_start=auto_start,
         )
 
     @classmethod
@@ -78,6 +81,7 @@ class Profile:
         debug_level: int = 0,
         log_file: str | None = None,
         extra_args: list[str] | None = None,
+        auto_start: bool = False,
     ) -> Profile:
         return cls(
             name=name,
@@ -90,6 +94,7 @@ class Profile:
             debug_level=debug_level,
             log_file=log_file,
             extra_args=extra_args or [],
+            auto_start=auto_start,
         )
 
     def to_dict(self) -> dict[str, Any]:

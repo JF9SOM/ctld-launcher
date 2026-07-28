@@ -1,16 +1,46 @@
 from __future__ import annotations
 
+import stat
+from pathlib import Path
+
 from ctld_launcher.core.profile import ProfileKind, ProfileStore
 from ctld_launcher.ui.main_window import MainWindow
+
+FAKE_CTLD = Path(__file__).parent / "_fake_ctld.py"
 
 
 def _fake_resolver(kind: ProfileKind) -> str:
     return "rigctld" if kind == ProfileKind.RIG else "rotctld"
 
 
-def _make_window(tmp_path, qtbot) -> MainWindow:  # type: ignore[no-untyped-def]
+class FakeAutostartBackend:
+    def __init__(self, supported: bool = True, enabled: bool = False) -> None:
+        self.supported = supported
+        self.enabled = enabled
+        self.enable_calls = 0
+        self.disable_calls = 0
+
+    def is_supported(self) -> bool:
+        return self.supported
+
+    def is_enabled(self) -> bool:
+        return self.enabled
+
+    def enable(self, command: list[str] | None = None) -> None:
+        self.enable_calls += 1
+        self.enabled = True
+
+    def disable(self) -> None:
+        self.disable_calls += 1
+        self.enabled = False
+
+
+def _make_window(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, autostart_backend=None, executable_resolver=_fake_resolver
+) -> MainWindow:
     store = ProfileStore(path=tmp_path / "profiles.json")
-    window = MainWindow(store=store, executable_resolver=_fake_resolver)
+    kwargs = {} if autostart_backend is None else {"autostart_backend": autostart_backend}
+    window = MainWindow(store=store, executable_resolver=executable_resolver, **kwargs)
     qtbot.addWidget(window)
     return window
 
@@ -64,3 +94,61 @@ def test_remove_selected_profile(tmp_path, qtbot) -> None:  # type: ignore[no-un
     window._remove_selected()
     assert window.profiles == []
     assert window._list.count() == 0
+
+
+def test_autostart_checkbox_reflects_initial_backend_state(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    backend = FakeAutostartBackend(supported=True, enabled=True)
+    window = _make_window(tmp_path, qtbot, autostart_backend=backend)
+    assert window._autostart_checkbox.isChecked() is True
+    assert window._autostart_checkbox.isEnabled() is True
+
+
+def test_autostart_checkbox_disabled_when_unsupported(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    backend = FakeAutostartBackend(supported=False)
+    window = _make_window(tmp_path, qtbot, autostart_backend=backend)
+    assert window._autostart_checkbox.isEnabled() is False
+
+
+def test_toggling_autostart_checkbox_calls_backend(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    backend = FakeAutostartBackend(supported=True, enabled=False)
+    window = _make_window(tmp_path, qtbot, autostart_backend=backend)
+
+    window._autostart_checkbox.setChecked(True)
+    assert backend.enable_calls == 1
+
+    window._autostart_checkbox.setChecked(False)
+    assert backend.disable_calls == 1
+
+
+def test_profile_autostart_checkbox_persists(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    assert profile.auto_start is False
+
+    window._profile_autostart_checkbox.setChecked(True)
+    assert profile.auto_start is True
+
+    store = ProfileStore(path=tmp_path / "profiles.json")
+    assert store.load()[0].auto_start is True
+
+
+def test_start_autostart_profiles_starts_only_flagged_ones(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+
+    def resolver(kind: ProfileKind) -> str:
+        return str(FAKE_CTLD)
+
+    window = _make_window(tmp_path, qtbot, executable_resolver=resolver)
+    window._add_profile(ProfileKind.RIG)
+    window._add_profile(ProfileKind.RIG)
+    flagged, unflagged = window.profiles
+    flagged.auto_start = True
+
+    try:
+        window.start_autostart_profiles()
+        qtbot.waitUntil(lambda: window.is_running(flagged.id), timeout=1000)
+        assert window.is_running(flagged.id) is True
+        assert window.is_running(unflagged.id) is False
+    finally:
+        window.stop_all()

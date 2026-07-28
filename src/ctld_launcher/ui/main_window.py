@@ -7,6 +7,7 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QGroupBox,
@@ -26,6 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ctld_launcher.core import autostart as autostart_module
+from ctld_launcher.core.autostart import AutostartBackend, AutostartError
 from ctld_launcher.core.hamlib_locator import ExecutableNotFoundError, find_executable
 from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufacturer
 from ctld_launcher.core.process_manager import CtldProcess, build_command
@@ -89,6 +92,7 @@ class MainWindow(QMainWindow):
         self,
         store: ProfileStore | None = None,
         executable_resolver: Callable[[ProfileKind], str] = find_executable,
+        autostart_backend: AutostartBackend = autostart_module,
     ) -> None:
         super().__init__()
         self.setWindowTitle("ctld-launcher")
@@ -98,6 +102,7 @@ class MainWindow(QMainWindow):
         self._profiles: list[Profile] = self._store.load()
         self._processes: dict[str, CtldProcess] = {}
         self._executable_resolver = executable_resolver
+        self._autostart = autostart_backend
         self._current_id: str | None = None
         self._updating_form = False
 
@@ -141,6 +146,13 @@ class MainWindow(QMainWindow):
         remove_button.clicked.connect(self._remove_selected)
         layout.addWidget(remove_button)
 
+        self._autostart_checkbox = QCheckBox("ログイン時に自動起動")
+        self._autostart_checkbox.setEnabled(self._autostart.is_supported())
+        if self._autostart.is_supported():
+            self._autostart_checkbox.setChecked(self._autostart.is_enabled())
+        self._autostart_checkbox.toggled.connect(self._on_autostart_toggled)
+        layout.addWidget(self._autostart_checkbox)
+
         container.setMaximumWidth(220)
         return container
 
@@ -152,6 +164,12 @@ class MainWindow(QMainWindow):
         self._name_edit = QLineEdit()
         self._name_edit.editingFinished.connect(self._on_name_changed)
         header.addWidget(self._name_edit)
+        self._profile_autostart_checkbox = QCheckBox("自動起動")
+        self._profile_autostart_checkbox.setToolTip(
+            "アプリ起動時にこのプロファイルも自動的に起動する"
+        )
+        self._profile_autostart_checkbox.toggled.connect(self._on_field_changed)
+        header.addWidget(self._profile_autostart_checkbox)
         self._status_label = QLabel()
         header.addWidget(self._status_label)
         layout.addLayout(header)
@@ -352,6 +370,24 @@ class MainWindow(QMainWindow):
         row = self._list.currentRow()
         self._list.takeItem(row)
 
+    def _on_autostart_toggled(self, checked: bool) -> None:
+        try:
+            if checked:
+                self._autostart.enable()
+            else:
+                self._autostart.disable()
+        except AutostartError as exc:
+            QMessageBox.warning(self, "自動起動の設定に失敗しました", str(exc))
+            self._autostart_checkbox.blockSignals(True)
+            self._autostart_checkbox.setChecked(not checked)
+            self._autostart_checkbox.blockSignals(False)
+
+    def start_autostart_profiles(self) -> None:
+        """Start every profile flagged auto_start. Called once at app launch."""
+        for profile in self._profiles:
+            if profile.auto_start:
+                self._start_profile(profile)
+
     # ------------------------------------------------------------------ #
     # Form population / persistence
     # ------------------------------------------------------------------ #
@@ -372,6 +408,7 @@ class MainWindow(QMainWindow):
     def _set_form_enabled(self, enabled: bool) -> None:
         for widget in (
             self._name_edit,
+            self._profile_autostart_checkbox,
             self._manufacturer_combo,
             self._model_combo,
             self._model_id_spin,
@@ -389,6 +426,7 @@ class MainWindow(QMainWindow):
         self._updating_form = True
         try:
             self._name_edit.setText(profile.name)
+            self._profile_autostart_checkbox.setChecked(profile.auto_start)
 
             models = self._models_for_kind(profile.kind)
             self._manufacturer_combo.clear()
@@ -501,6 +539,7 @@ class MainWindow(QMainWindow):
         profile = self._selected_profile()
         if profile is None:
             return
+        profile.auto_start = self._profile_autostart_checkbox.isChecked()
         profile.model_id = self._model_id_spin.value()
         profile.port = self._port_combo.currentText()
         baud_text = self._baud_combo.currentText().strip()
