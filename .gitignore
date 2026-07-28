@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+src/ctld_launcher/_version.py
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# 仮想環境
+.venv/
+venv/
+env/
+
+# テスト・カバレッジ
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ビルド成果物
+*.spec.bak
+*.AppImage
+*.dmg
+*.exe
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 秘密情報
+.env
