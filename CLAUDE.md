@@ -43,12 +43,17 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
    - **Hamlib Pythonバインディングの`Rig()`/`Rot()`クラスは意図的に不採用**: システムのPython 3.12用に自前ビルドした`_Hamlib.so`で全`RIG_MODEL_*`定数を`Hamlib.Rig(model_id)`に通して実機検証したところ、`RIG_MODEL_ARMSTRONG`(id=3)でlibhamlib内部から回復不能な`Hash collision!!! Fatal error!!`が発生しPythonの例外処理では捕捉できずプロセスごと落ちることを確認。`--list`は`rig_list_foreach()`内部実装を使うため同じ経路を通らず安全。サブプロセス分離により、将来別のクラッシュが見つかってもGUI本体は道連れにならない。
    - 実機(Linux版hamlib-bundle)で75メーカー・Icom 84機種の取得を確認済み。
 6. ✅ OS別自動起動(ログイン時) — `core/autostart.py`(Linux/macOS/Windows対応、詳細は上記アーキテクチャ方針参照)。`Profile.auto_start`でプロファイル単位の「アプリ起動時に自動起動するか」を管理(OSレベルのアプリ自動起動とは別軸)。GUI: サイドバーに「ログイン時に自動起動」チェックボックス(実OS状態を反映・トグルで即座に有効/無効化)、フォームヘッダーに「自動起動」チェックボックス(プロファイル単位)。`main.py`起動時に`auto_start=True`のプロファイルを自動起動。Linuxは実際の`systemctl --user`で有効化→確認→無効化のフルサイクルを検証済み。macOSはplist生成ロジックを検証(このマシンに`launchctl`がないため生成内容の妥当性のみ)、Windowsは`winreg`をモックして検証(このマシンに`winreg`自体がないため)。
-7. パッケージング(AppImage/NSIS/dmg)
+7. ✅ パッケージング(AppImage/NSIS/dmg) — `scripts/ctld-launcher.spec`(PyInstaller、hamlib-bundleを`datas`として同梱。`binaries`ではなく`datas`を使うのは、PyInstallerの`binaries`は依存関係解析・rpath書き換えを行い、build-hamlib.yml CIで検証済みの`$ORIGIN`/`@loader_path`相対レイアウトと衝突するため)。`scripts/build-appimage.sh`/`installer.nsi`/`build-dmg.sh`はFBSAT59の実績あるスクリプトを土台に簡略化。`core/hamlib_locator.py`は`sys._MEIPASS`(PyInstallerの公式なバンドルデータ検出方法)経由でバンドル済みhamlibを優先的に検出。
+   - アイコンは`assets/generate_icons.py`(Pillow)で生成したプレースホルダー(トレイアイコンと同じ紫のマーク)。PNG/icoはコミット済み、icnsはこのマシンに`sips`/`iconutil`がない(macOS専用ツール)ためmacOS CI側で`scripts/generate-icns.sh`により都度生成。
+   - `.github/workflows/build-release.yml` — `v*`タグpushで3プラットフォーム一括ビルド・リリース添付。`workflow_dispatch`で個別プラットフォームのテストビルドも可能。
+   - **Linuxはこのマシンで実機検証済み**: PyInstallerビルド→バンドル済みrigctldが`_MEIPASS/hamlib/`から検出される→自動起動プロファイルで実際にrigctldが起動しTCP応答(`145000000`)を確認、を`dist/ctld-launcher/`のPyInstaller出力とAppImage本体の両方で確認。既存の`rigctld-ftx1`等システムサービスへの影響なし。
+   - 3プラットフォームとも`workflow_dispatch`でのCI実行に成功済み(Linux/Windows/macOS)。
 
 ## CI
 
 - `.github/workflows/ci.yml` — push/PR(mainブランチ)ごとにruff(lint+format check)/mypy/pytestを実行。Hamlibのインストールは不要(テストは`_fake_ctld.py`/`_fake_hamlib_list.py`等のフェイクスクリプトで完結し、実バインディングに依存しない)。
 - `.github/workflows/build-hamlib.yml` — hamlib-bundleの生成(手動起動)。
+- `.github/workflows/build-release.yml` — アプリ本体のパッケージング・リリース(`v*`タグpush、または`workflow_dispatch`)。
 
 ## 既知の未実装事項
 
