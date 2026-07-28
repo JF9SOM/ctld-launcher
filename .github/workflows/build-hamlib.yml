@@ -395,10 +395,15 @@ jobs:
             cp ${PORTABLE_BIN}/${bin} ${PKG}/
             chmod +x ${PKG}/${bin}
           done
-          # Fix rpath inside each binary to point to @loader_path (flat layout)
-          install_name_tool -add_rpath @loader_path "${PKG}/_Hamlib${PY_EXT}" 2>/dev/null || true
-          for bin in rigctld rotctld rigctl rotctl; do
-            install_name_tool -add_rpath @loader_path "${PKG}/${bin}" 2>/dev/null || true
+          # Fix rpath inside each binary to point to @loader_path (flat layout).
+          # install_name_tool invalidates the ad-hoc code signature dylibbundler
+          # just applied; on Apple Silicon an unsigned/invalidated binary is
+          # killed by the kernel at launch, so re-sign (ad-hoc) afterwards —
+          # this matters for the shipped bundle running on end-user Macs, not
+          # just for the sanity check below.
+          for f in "${PKG}/_Hamlib${PY_EXT}" "${PKG}/rigctld" "${PKG}/rotctld" "${PKG}/rigctl" "${PKG}/rotctl"; do
+            install_name_tool -add_rpath @loader_path "$f" 2>/dev/null || true
+            codesign --force --sign - "$f"
           done
           echo "${HAMLIB_VER}" > ${PKG}/version.txt
 
