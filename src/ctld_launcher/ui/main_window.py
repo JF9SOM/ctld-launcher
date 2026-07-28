@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from ctld_launcher.core.hamlib_locator import ExecutableNotFoundError, find_executable
-from ctld_launcher.core.known_models import models_for
+from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufacturer
 from ctld_launcher.core.process_manager import CtldProcess, build_command
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
@@ -331,9 +331,7 @@ class MainWindow(QMainWindow):
                 return
 
     def _add_profile(self, kind: ProfileKind) -> None:
-        models = models_for(kind)
-        first_manufacturer = next(iter(models))
-        model_id, _name = models[first_manufacturer][0]
+        model_id = default_model_id(kind)
         if kind == ProfileKind.RIG:
             profile = Profile.new_rig(name="新しいリグ", model_id=model_id)
         else:
@@ -392,13 +390,13 @@ class MainWindow(QMainWindow):
         try:
             self._name_edit.setText(profile.name)
 
-            models = models_for(profile.kind)
+            models = self._models_for_kind(profile.kind)
             self._manufacturer_combo.clear()
             self._manufacturer_combo.addItems(list(models))
-            manufacturer = self._manufacturer_for_model(profile.kind, profile.model_id)
+            manufacturer = self._manufacturer_for_model(models, profile.model_id)
             if manufacturer is not None:
                 _set_combo_text(self._manufacturer_combo, manufacturer)
-            self._populate_model_combo(profile.kind, self._manufacturer_combo.currentText())
+            self._populate_model_combo(models, self._manufacturer_combo.currentText())
             self._model_id_spin.setValue(profile.model_id)
 
             if not self._port_combo.count():
@@ -423,16 +421,27 @@ class MainWindow(QMainWindow):
             self._updating_form = False
         self._update_status_and_buttons()
 
-    def _manufacturer_for_model(self, kind: ProfileKind, model_id: int) -> str | None:
-        for manufacturer, models in models_for(kind).items():
-            if any(mid == model_id for mid, _name in models):
+    def _models_for_kind(self, kind: ProfileKind) -> dict[str, list[tuple[int, str]]]:
+        try:
+            executable = self._executable_resolver(kind)
+        except ExecutableNotFoundError:
+            return {}
+        return models_by_manufacturer(executable)
+
+    def _manufacturer_for_model(
+        self, models: dict[str, list[tuple[int, str]]], model_id: int
+    ) -> str | None:
+        for manufacturer, entries in models.items():
+            if any(mid == model_id for mid, _name in entries):
                 return manufacturer
         return None
 
-    def _populate_model_combo(self, kind: ProfileKind, manufacturer: str) -> None:
+    def _populate_model_combo(
+        self, models: dict[str, list[tuple[int, str]]], manufacturer: str
+    ) -> None:
         self._model_combo.blockSignals(True)
         self._model_combo.clear()
-        for model_id, name in models_for(kind).get(manufacturer, []):
+        for model_id, name in models.get(manufacturer, []):
             self._model_combo.addItem(name, userData=model_id)
         self._model_combo.blockSignals(False)
 
@@ -442,7 +451,8 @@ class MainWindow(QMainWindow):
         profile = self._selected_profile()
         if profile is None:
             return
-        self._populate_model_combo(profile.kind, self._manufacturer_combo.currentText())
+        models = self._models_for_kind(profile.kind)
+        self._populate_model_combo(models, self._manufacturer_combo.currentText())
         self._on_model_combo_changed()
 
     def _on_model_combo_changed(self) -> None:
