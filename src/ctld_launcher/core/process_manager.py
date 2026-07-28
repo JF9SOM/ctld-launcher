@@ -1,0 +1,116 @@
+from __future__ import annotations
+
+import subprocess
+import threading
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from pathlib import Path
+from typing import IO
+
+from ctld_launcher.core.profile import Profile
+
+
+class CtldProcessError(Exception):
+    """Raised for invalid process lifecycle operations (e.g. starting twice)."""
+
+
+@contextmanager
+def _optional_log_file(path: str | None) -> Iterator[IO[str] | None]:
+    if path is None:
+        yield None
+        return
+    with open(path, "a", encoding="utf-8") as fh:
+        yield fh
+
+
+def build_command(executable: str, profile: Profile) -> list[str]:
+    """Translate a Profile into rigctld/rotctld CLI arguments.
+
+    Both daemons share the same -m/-r/-s/-t/-T/-v flags; anything not covered
+    (e.g. -c civaddr) goes through profile.extra_args verbatim.
+    """
+    command = [executable, "-m", str(profile.model_id)]
+    if profile.port:
+        command += ["-r", profile.port]
+    if profile.serial_speed:
+        command += ["-s", str(profile.serial_speed)]
+    command += ["-t", str(profile.listen_port)]
+    if profile.listen_address:
+        command += ["-T", profile.listen_address]
+    if profile.debug_level > 0:
+        command.append("-" + "v" * min(profile.debug_level, 5))
+    command += list(profile.extra_args)
+    return command
+
+
+class CtldProcess:
+    """Owns the lifecycle of a single rigctld/rotctld subprocess."""
+
+    def __init__(
+        self,
+        command: list[str],
+        log_file: str | None = None,
+        on_output: Callable[[str], None] | None = None,
+        on_exit: Callable[[int], None] | None = None,
+    ) -> None:
+        self._command = command
+        self._log_file = log_file
+        self._on_output = on_output
+        self._on_exit = on_exit
+        self._process: subprocess.Popen[str] | None = None
+        self._reader_thread: threading.Thread | None = None
+
+    @property
+    def is_running(self) -> bool:
+        return self._process is not None and self._process.poll() is None
+
+    @property
+    def pid(self) -> int | None:
+        return self._process.pid if self._process is not None else None
+
+    def start(self) -> None:
+        if self.is_running:
+            raise CtldProcessError(f"process already running (pid={self.pid})")
+        if self._log_file:
+            Path(self._log_file).parent.mkdir(parents=True, exist_ok=True)
+        self._process = subprocess.Popen(
+            self._command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        self._reader_thread = threading.Thread(target=self._read_output, daemon=True)
+        self._reader_thread.start()
+
+    def _read_output(self) -> None:
+        process = self._process
+        assert process is not None and process.stdout is not None
+        with _optional_log_file(self._log_file) as log_fh:
+            for raw_line in process.stdout:
+                line = raw_line.rstrip("\n")
+                if log_fh:
+                    log_fh.write(line + "\n")
+                    log_fh.flush()
+                if self._on_output:
+                    self._on_output(line)
+        exit_code = process.wait()
+        if self._on_exit:
+            self._on_exit(exit_code)
+
+    def stop(self, timeout: float = 5.0) -> None:
+        process = self._process
+        if process is None or process.poll() is not None:
+            return
+        process.terminate()
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        if self._reader_thread is not None:
+            self._reader_thread.join(timeout=timeout)
+
+    def restart(self) -> None:
+        self.stop()
+        self.start()
