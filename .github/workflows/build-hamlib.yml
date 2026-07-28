@@ -70,10 +70,20 @@ jobs:
           # `make install` also produces bin/rigctld, bin/rotctld, bin/rigctl,
           # bin/rotctl — no special configure flag is needed for these.
           cd hamlib-${HAMLIB_VER}
+          # LDFLAGS is doubled ($$ORIGIN) because it goes through `make`:
+          # Make recursively re-expands variable values when a recipe
+          # references $(LDFLAGS), so a single "$ORIGIN" is parsed as the
+          # one-letter make variable $O (empty/undefined) followed by
+          # literal "RIGIN" — corrupting the embedded RUNPATH so rigctld
+          # can't find libhamlib.so.4 at runtime. $$ORIGIN survives Make's
+          # expansion as a literal single $ORIGIN, which is what the linker
+          # (and later the dynamic loader) need to see. This does not apply
+          # to the direct `gcc -Wl,-rpath,$ORIGIN` invocation for _Hamlib.so
+          # below, since that command never passes through Make.
           ./configure \
             --prefix=/tmp/hamlib-portable \
             --disable-static \
-            LDFLAGS="-Wl,-rpath,\$ORIGIN"
+            LDFLAGS="-Wl,-rpath,\$\$ORIGIN"
           make -j$(nproc)
           make install
           cd ..
@@ -122,10 +132,17 @@ jobs:
           done
           echo "${HAMLIB_VER}" > ${PKG}/version.txt
 
-          # Sanity check: rigctld/rotctld resolve libhamlib.so.4 via $ORIGIN
-          # without needing the system library path.
-          ${PKG}/rigctld --version
-          ${PKG}/rotctld --version
+          # Sanity check: copy the package to an unrelated directory before
+          # testing, so this actually proves $ORIGIN relocatability. Running
+          # it in place would still "work" even with a broken RUNPATH,
+          # because libtool also bakes in the absolute /tmp/hamlib-portable/lib
+          # build path as a fallback rpath entry — which only exists on this
+          # runner, not on an end user's machine.
+          rm -rf /tmp/hamlib-portable
+          mkdir -p /tmp/relocated-check
+          cp -r ${PKG} /tmp/relocated-check/
+          /tmp/relocated-check/${PKG}/rigctld --version
+          /tmp/relocated-check/${PKG}/rotctld --version
 
           tar -czf ${PKG}.tar.gz ${PKG}/
           echo "HAMLIB_PKG=${PKG}.tar.gz" >> $GITHUB_ENV
@@ -258,9 +275,14 @@ jobs:
           }
           "$HAMLIB_VER" | Out-File -FilePath "$pkgName\version.txt" -Encoding ASCII -NoNewline
 
-          # Sanity check
-          & ".\$pkgName\rigctld.exe" --version
-          & ".\$pkgName\rotctld.exe" --version
+          # Sanity check: run from a copy in an unrelated directory, so this
+          # actually proves the package is self-contained (see the Linux job
+          # for why testing in place can hide a relocatability bug).
+          $relocated = "$env:RUNNER_TEMP\relocated-check\$pkgName"
+          New-Item -ItemType Directory -Force -Path $relocated | Out-Null
+          Copy-Item "$pkgName\*" $relocated -Force
+          & "$relocated\rigctld.exe" --version
+          & "$relocated\rotctld.exe" --version
 
           Compress-Archive -Path "$pkgName\*" -DestinationPath "$pkgName.zip"
           "HAMLIB_PKG=$pkgName.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding UTF8 -Append
@@ -403,9 +425,13 @@ jobs:
           done
           echo "${HAMLIB_VER}" > ${PKG}/version.txt
 
-          # Sanity check
-          ${PKG}/rigctld --version
-          ${PKG}/rotctld --version
+          # Sanity check: run from a copy in an unrelated directory, so this
+          # actually proves the package is self-contained (see the Linux job
+          # for why testing in place can hide a relocatability bug).
+          mkdir -p /tmp/relocated-check
+          cp -r ${PKG} /tmp/relocated-check/
+          /tmp/relocated-check/${PKG}/rigctld --version
+          /tmp/relocated-check/${PKG}/rotctld --version
 
           tar -czf ${PKG}.tar.gz ${PKG}/
           echo "HAMLIB_PKG=${PKG}.tar.gz" >> $GITHUB_ENV
