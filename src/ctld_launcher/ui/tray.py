@@ -52,9 +52,7 @@ class TrayIcon(QSystemTrayIcon):
             running = self._window.is_running(profile.id)
             action = menu.addAction(status_dot_icon(running), profile.name)
             action.triggered.connect(
-                lambda checked=False, profile_id=profile.id: self._window.toggle_process(
-                    profile_id
-                )
+                lambda checked=False, profile_id=profile.id: self._window.toggle_process(profile_id)
             )
         menu.addSeparator()
         open_action = menu.addAction("設定を開く…")

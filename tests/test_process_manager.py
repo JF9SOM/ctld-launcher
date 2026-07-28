@@ -25,13 +25,19 @@ def test_build_command_rig() -> None:
     )
     assert build_command("rigctld", profile) == [
         "rigctld",
-        "-m", "3081",
-        "-r", "/dev/ttyUSB0",
-        "-s", "19200",
-        "-t", "4532",
-        "-T", "127.0.0.1",
+        "-m",
+        "3081",
+        "-r",
+        "/dev/ttyUSB0",
+        "-s",
+        "19200",
+        "-t",
+        "4532",
+        "-T",
+        "127.0.0.1",
         "-vv",
-        "-c", "0xa4",
+        "-c",
+        "0xa4",
     ]
 
 
@@ -56,9 +62,12 @@ def test_build_command_minimal_rig() -> None:
     profile = Profile(name="Dummy", kind=ProfileKind.RIG, model_id=1)
     assert build_command("rigctld", profile) == [
         "rigctld",
-        "-m", "1",
-        "-t", "4532",
-        "-T", "127.0.0.1",
+        "-m",
+        "1",
+        "-t",
+        "4532",
+        "-T",
+        "127.0.0.1",
     ]
 
 
