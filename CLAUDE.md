@@ -16,10 +16,10 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
   - `rigctld` / `rotctld` / `rigctl` / `rotctl` 実行ファイル(GUIから起動する本体)
   - SWIG生成のPythonバインディング(`Hamlib.py` / `_Hamlib.so`等) — 将来的な直接制御用に同梱。ただしモデル一覧の動的取得には**使っていない**(理由はステップ5参照: `Hamlib.Rig(model_id)`が特定モデルで回復不能なクラッシュを起こすことが判明したため、`rigctld --list`のサブプロセス実行+パースに切り替えた)
   - 参考: FBSAT59の`.github/workflows/ci.yml`「Build Hamlib 4.7.1 from source」ステップが土台になる(`./configure && make && make install`で既に`rigctld`/`rotctld`はビルドされているが、現状バンドルパッケージにコピーされていないだけ)
-- **自動起動・サービス化の範囲(v1)**: ログイン時自動起動のみに限定し、管理者/root権限が必要なシステム全体サービス化は将来のバックログとする。
-  - Linux: `~/.config/systemd/user/`にunit生成 → `systemctl --user enable --now`
-  - macOS: `~/Library/LaunchAgents/`にplist生成 → `launchctl load`
-  - Windows: スタートアップフォルダ登録 or レジストリRunキー
+- **自動起動・サービス化の範囲(v1)**: ログイン時自動起動のみに限定し、管理者/root権限が必要なシステム全体サービス化は将来のバックログとする。実装は`core/autostart.py`(ステップ6参照)。
+  - Linux: `~/.config/systemd/user/`にunit生成 → `systemctl --user enable`(`--now`は付けない — チェックボックスON時にアプリが二重起動しないよう、反映は次回ログイン時)
+  - macOS: `~/Library/LaunchAgents/`にplist生成(`launchctl load`は同じ理由で呼ばない — launchdが次回ログイン時に自動で拾う)
+  - Windows: `HKEY_CURRENT_USER\...\Run`レジストリキー(`winreg`、追加依存なし、管理者権限不要)
 
 ## 主要機能(予定)
 
@@ -42,7 +42,7 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 5. ✅ モデル一覧の動的取得 — `core/hamlib_models.py`。`rigctld`/`rotctld`の`--list`出力(固定幅テーブル、見出し行から列位置を動的検出してパース)をサブプロセスとして実行・解析し、メーカー別にグルーピング。
    - **Hamlib Pythonバインディングの`Rig()`/`Rot()`クラスは意図的に不採用**: システムのPython 3.12用に自前ビルドした`_Hamlib.so`で全`RIG_MODEL_*`定数を`Hamlib.Rig(model_id)`に通して実機検証したところ、`RIG_MODEL_ARMSTRONG`(id=3)でlibhamlib内部から回復不能な`Hash collision!!! Fatal error!!`が発生しPythonの例外処理では捕捉できずプロセスごと落ちることを確認。`--list`は`rig_list_foreach()`内部実装を使うため同じ経路を通らず安全。サブプロセス分離により、将来別のクラッシュが見つかってもGUI本体は道連れにならない。
    - 実機(Linux版hamlib-bundle)で75メーカー・Icom 84機種の取得を確認済み。
-6. OS別自動起動(ログイン時)
+6. ✅ OS別自動起動(ログイン時) — `core/autostart.py`(Linux/macOS/Windows対応、詳細は上記アーキテクチャ方針参照)。`Profile.auto_start`でプロファイル単位の「アプリ起動時に自動起動するか」を管理(OSレベルのアプリ自動起動とは別軸)。GUI: サイドバーに「ログイン時に自動起動」チェックボックス(実OS状態を反映・トグルで即座に有効/無効化)、フォームヘッダーに「自動起動」チェックボックス(プロファイル単位)。`main.py`起動時に`auto_start=True`のプロファイルを自動起動。Linuxは実際の`systemctl --user`で有効化→確認→無効化のフルサイクルを検証済み。macOSはplist生成ロジックを検証(このマシンに`launchctl`がないため生成内容の妥当性のみ)、Windowsは`winreg`をモックして検証(このマシンに`winreg`自体がないため)。
 7. パッケージング(AppImage/NSIS/dmg)
 
 ## CI
