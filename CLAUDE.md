@@ -34,8 +34,8 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 
 ## 開発ステップ
 
-1. プロジェクト雛形(`pyproject.toml`、ディレクトリ構成)
-2. hamlibビルドCI(`.github/workflows/build-hamlib.yml`)
+1. ~~プロジェクト雛形(`pyproject.toml`、ディレクトリ構成)~~
+2. ✅ hamlibビルドCI(`.github/workflows/build-hamlib.yml`) — FBSAT59のci.ymlを土台に、`rigctld`/`rotctld`/`rigctl`/`rotctl`をバンドルに追加。ポータブル版のみ生成(PyInstaller用固定パスビルドは不要なので省略)。`hamlib-bundle`プレリリースにアップロードする独立ワークフロー(手動起動 + ワークフローファイル変更時のpushで動作確認可能)。
 3. コア: サブプロセス管理・プロファイル保存
 4. GUI: モデル/ポート選択画面
 5. Pythonバインディング連携によるモデル一覧取得

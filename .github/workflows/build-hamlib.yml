@@ -1,0 +1,432 @@
+name: Build Hamlib Bundle
+
+# Builds a portable Hamlib bundle (rigctld/rotctld/rigctl/rotctl + the SWIG
+# Python bindings used for dynamic model-list lookup) for Linux/Windows/macOS
+# and uploads it to the dedicated "hamlib-bundle" pre-release, independent of
+# any app release tag.
+#
+# Adapted from JF9SOM/FBSAT59's .github/workflows/ci.yml Hamlib build steps.
+# Differences from that source:
+#  - Only the portable ($ORIGIN / @loader_path) build is produced — FBSAT59
+#    also builds a second copy at a fixed prefix to link PyInstaller against
+#    in the same job; this workflow's only job is to produce the redistributable
+#    bundle, so that extra build is skipped.
+#  - rigctld/rotctld/rigctl/rotctl are copied into the flat package alongside
+#    libhamlib and the Python bindings (FBSAT59 only bundles the bindings).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-hamlib.yml'
+  workflow_dispatch:
+    inputs:
+      hamlib_version:
+        description: 'Hamlib version to build'
+        required: false
+        default: '4.7.1'
+
+env:
+  HAMLIB_VERSION: ${{ github.event.inputs.hamlib_version || '4.7.1' }}
+
+jobs:
+  # ------------------------------------------------------------------ #
+  # Linux
+  # ------------------------------------------------------------------ #
+  build-linux:
+    name: Build Hamlib (Linux)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake libtool pkg-config \
+            libusb-1.0-0-dev libxml2-dev swig python3.11-dev \
+            binutils coreutils
+
+      - name: Build Hamlib from source
+        run: |
+          HAMLIB_VER="${HAMLIB_VERSION}"
+          PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+          PYTAG=$(python3 -c "import sys; print(f'py{sys.version_info.major}{sys.version_info.minor}')")
+
+          wget -q https://github.com/Hamlib/Hamlib/releases/download/${HAMLIB_VER}/hamlib-${HAMLIB_VER}.tar.gz
+          tar -xzf hamlib-${HAMLIB_VER}.tar.gz
+
+          PY_INC=$(python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
+          PY_EXT=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
+
+          # Portable build only (rpath = $ORIGIN so the flat package is
+          # relocatable to any directory on the end user's machine).
+          # `make install` also produces bin/rigctld, bin/rotctld, bin/rigctl,
+          # bin/rotctl — no special configure flag is needed for these.
+          cd hamlib-${HAMLIB_VER}
+          ./configure \
+            --prefix=/tmp/hamlib-portable \
+            --disable-static \
+            LDFLAGS="-Wl,-rpath,\$ORIGIN"
+          make -j$(nproc)
+          make install
+          cd ..
+
+          echo "=== /tmp/hamlib-portable/bin ===" && ls /tmp/hamlib-portable/bin/
+
+          # Generate SWIG Python wrapper from .swg sources (used by the GUI
+          # to enumerate rig/rotator models dynamically instead of hardcoding)
+          swig -python -Wall \
+            -I/tmp/hamlib-portable/include \
+            -Ihamlib-${HAMLIB_VER}/bindings \
+            -o hamlib-${HAMLIB_VER}/bindings/hamlib_wrap.c \
+            -outdir hamlib-${HAMLIB_VER}/bindings \
+            hamlib-${HAMLIB_VER}/bindings/hamlib.swg
+
+          PORT_PYSITE=/tmp/hamlib-portable/lib/python${PYVER}/site-packages
+          mkdir -p ${PORT_PYSITE}
+          gcc -shared -fPIC -O2 \
+            -I/tmp/hamlib-portable/include \
+            -Ihamlib-${HAMLIB_VER}/include \
+            -I${PY_INC} \
+            hamlib-${HAMLIB_VER}/bindings/hamlib_wrap.c \
+            -L/tmp/hamlib-portable/lib \
+            -lhamlib \
+            -Wl,-rpath,\$ORIGIN \
+            -o ${PORT_PYSITE}/_Hamlib${PY_EXT}
+          cp hamlib-${HAMLIB_VER}/bindings/Hamlib.py ${PORT_PYSITE}/
+
+          # Verify the binding imports against the freshly built library
+          LD_LIBRARY_PATH=/tmp/hamlib-portable/lib \
+            PYTHONPATH=${PORT_PYSITE} \
+            python3 -c "import Hamlib; print('Hamlib version:', Hamlib.hamlib_version)"
+
+          # Package: everything flat so $ORIGIN resolves (rigctld/rotctld,
+          # libhamlib.so.4, and the Python binding all sit next to each other)
+          PKG="hamlib-linux-x86_64-${PYTAG}-${HAMLIB_VER}"
+          mkdir -p ${PKG}
+          SOFILE=$(ls /tmp/hamlib-portable/lib/libhamlib.so.4.*)
+          cp ${SOFILE} ${PKG}/
+          ln -sf $(basename ${SOFILE}) ${PKG}/libhamlib.so.4
+          cp ${PORT_PYSITE}/Hamlib.py ${PKG}/
+          cp ${PORT_PYSITE}/_Hamlib${PY_EXT} ${PKG}/
+          for bin in rigctld rotctld rigctl rotctl; do
+            cp /tmp/hamlib-portable/bin/${bin} ${PKG}/
+            chmod +x ${PKG}/${bin}
+          done
+          echo "${HAMLIB_VER}" > ${PKG}/version.txt
+
+          # Sanity check: rigctld/rotctld resolve libhamlib.so.4 via $ORIGIN
+          # without needing the system library path.
+          ${PKG}/rigctld --version
+          ${PKG}/rotctld --version
+
+          tar -czf ${PKG}.tar.gz ${PKG}/
+          echo "HAMLIB_PKG=${PKG}.tar.gz" >> $GITHUB_ENV
+          echo "HAMLIB_PKG_NAME=${PKG}" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamlib-linux
+          path: ${{ env.HAMLIB_PKG }}
+
+      - name: Upload to hamlib-bundle release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view hamlib-bundle \
+            --repo "${{ github.repository }}" 2>/dev/null || \
+          gh release create hamlib-bundle \
+            --repo "${{ github.repository }}" \
+            --title "Hamlib Bundle" \
+            --notes "Pre-built Hamlib (rigctld/rotctld/rigctl/rotctl + Python bindings) used by ctld-launcher." \
+            --prerelease
+          gh release upload hamlib-bundle \
+            --repo "${{ github.repository }}" \
+            --clobber \
+            "${{ env.HAMLIB_PKG }}"
+
+  # ------------------------------------------------------------------ #
+  # Windows
+  # ------------------------------------------------------------------ #
+  build-windows:
+    name: Build Hamlib (Windows)
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build Hamlib Python binding (MinGW) and portable package
+        shell: pwsh
+        run: |
+          $HAMLIB_VER = $env:HAMLIB_VERSION
+          $PYTAG = python -c "import sys; print(f'py{sys.version_info.major}{sys.version_info.minor}')"
+          $PY_INC  = python -c "import sysconfig; print(sysconfig.get_path('include'))"
+          $PY_EXT  = python -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+
+          # Install SWIG (needed to generate hamlib_wrap.c from .swg sources)
+          choco install swig -y --no-progress
+          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
+
+          # Download Hamlib source (for .swg binding sources) and the official
+          # pre-built Windows binaries (already contain rigctld.exe/rotctld.exe)
+          Invoke-WebRequest "https://github.com/Hamlib/Hamlib/releases/download/$HAMLIB_VER/hamlib-$HAMLIB_VER.tar.gz" -OutFile hamlib.tar.gz
+          tar -xzf hamlib.tar.gz
+          Invoke-WebRequest "https://github.com/Hamlib/Hamlib/releases/download/$HAMLIB_VER/hamlib-w64-$HAMLIB_VER.zip" -OutFile hamlib-win.zip
+          Expand-Archive -Path hamlib-win.zip -DestinationPath hamlib-extracted
+          $extracted = Get-ChildItem -Path hamlib-extracted -Directory | Select-Object -First 1
+          $binDir = "$($extracted.FullName)\bin"
+          $incDir = "$($extracted.FullName)\include"
+          Write-Host "=== bin/ (official Hamlib-w64 release) ==="
+          Get-ChildItem $binDir | Select-Object Name
+
+          # Generate SWIG Python wrapper from .swg sources
+          $bindingsDir = "hamlib-$HAMLIB_VER\bindings"
+          & swig -python -Wall `
+            "-I$incDir" `
+            "-I$bindingsDir" `
+            -o "$bindingsDir\hamlib_wrap.c" `
+            -outdir "$bindingsDir" `
+            "$bindingsDir\hamlib.swg"
+          if ($LASTEXITCODE -ne 0) { throw "swig failed" }
+
+          # hamlib_wrap.c includes <hamlib/config.h>, a build-time autotools
+          # artifact not present in the Windows binary zip — stub it.
+          $configH = "$incDir\hamlib\config.h"
+          if (-not (Test-Path $configH)) {
+            $stub = "#ifndef HAMLIB_CONFIG_H`n#define HAMLIB_CONFIG_H`n" +
+                    "#define PACKAGE_VERSION `"$HAMLIB_VER`"`n" +
+                    "#define VERSION `"$HAMLIB_VER`"`n" +
+                    "#define PACKAGE `"hamlib`"`n" +
+                    "#define PACKAGE_NAME `"Hamlib`"`n" +
+                    "#define PACKAGE_STRING `"Hamlib $HAMLIB_VER`"`n" +
+                    "#define PACKAGE_TARNAME `"hamlib`"`n" +
+                    "#define PACKAGE_URL `"http://hamlib.org`"`n" +
+                    "#endif`n"
+            Set-Content -Path $configH -Value $stub -Encoding ASCII
+          }
+
+          # Compile _Hamlib.pyd with MinGW GCC (same toolchain as libhamlib-4.dll)
+          $gcc = "C:\mingw64\bin\gcc.exe"
+          $pythonDir = Split-Path (Get-Command python).Source
+          $pyDll = Get-ChildItem $pythonDir -Filter "python3*.dll" |
+                   Where-Object { $_.Name -match "^python3\d+\.dll$" } |
+                   Select-Object -First 1
+          $pyBase = [IO.Path]::GetFileNameWithoutExtension($pyDll.Name)
+          & C:\mingw64\bin\gendef $pyDll.FullName
+          & C:\mingw64\bin\dlltool -D $pyDll.Name -d "$pyBase.def" -l "lib$pyBase.dll.a"
+          if ($LASTEXITCODE -ne 0) { throw "dlltool failed" }
+
+          & $gcc -shared -O2 -DMS_WIN64 `
+            "-I$incDir" "-I$PY_INC" `
+            "$bindingsDir\hamlib_wrap.c" `
+            "-L$binDir" "-lhamlib-4" `
+            "-L." "-l$pyBase" `
+            "-o" "_Hamlib$PY_EXT"
+          if ($LASTEXITCODE -ne 0) { throw "gcc failed" }
+
+          # Verify import
+          python -c "import os; os.add_dll_directory(r'$PWD'); os.add_dll_directory(r'$binDir'); import Hamlib; print('Hamlib version:', Hamlib.hamlib_version)"
+
+          # --- Assemble portable flat package ---
+          $pkgName = "hamlib-windows-x86_64-$PYTAG-$HAMLIB_VER"
+          New-Item -ItemType Directory -Force -Path $pkgName | Out-Null
+          Copy-Item "$binDir\*.dll" "$pkgName\" -ErrorAction SilentlyContinue
+          Copy-Item "C:\mingw64\bin\libgcc_s_seh-1.dll" "$pkgName\" -ErrorAction SilentlyContinue
+          Copy-Item "C:\mingw64\bin\libwinpthread-1.dll" "$pkgName\" -ErrorAction SilentlyContinue
+          Copy-Item "hamlib-$HAMLIB_VER\bindings\Hamlib.py" "$pkgName\" -Force
+          Copy-Item "_Hamlib$PY_EXT" "$pkgName\" -Force
+          foreach ($exe in @("rigctld.exe", "rotctld.exe", "rigctl.exe", "rotctl.exe")) {
+            $src = Join-Path $binDir $exe
+            if (Test-Path $src) {
+              Copy-Item $src "$pkgName\" -Force
+            } else {
+              throw "$exe not found in official Hamlib-w64 release bin/ — cannot continue"
+            }
+          }
+          "$HAMLIB_VER" | Out-File -FilePath "$pkgName\version.txt" -Encoding ASCII -NoNewline
+
+          # Sanity check
+          & ".\$pkgName\rigctld.exe" --version
+          & ".\$pkgName\rotctld.exe" --version
+
+          Compress-Archive -Path "$pkgName\*" -DestinationPath "$pkgName.zip"
+          "HAMLIB_PKG=$pkgName.zip" | Out-File -FilePath $env:GITHUB_ENV -Encoding UTF8 -Append
+          "HAMLIB_PKG_NAME=$pkgName" | Out-File -FilePath $env:GITHUB_ENV -Encoding UTF8 -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamlib-windows
+          path: ${{ env.HAMLIB_PKG }}
+
+      - name: Upload to hamlib-bundle release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $exists = gh release view hamlib-bundle `
+            --repo "${{ github.repository }}" 2>$null
+          if (-not $exists) {
+            gh release create hamlib-bundle `
+              --repo "${{ github.repository }}" `
+              --title "Hamlib Bundle" `
+              --notes "Pre-built Hamlib (rigctld/rotctld/rigctl/rotctl + Python bindings) used by ctld-launcher." `
+              --prerelease
+          }
+          gh release upload hamlib-bundle `
+            --repo "${{ github.repository }}" `
+            --clobber `
+            "${{ env.HAMLIB_PKG }}"
+
+  # ------------------------------------------------------------------ #
+  # macOS
+  # ------------------------------------------------------------------ #
+  build-macos:
+    name: Build Hamlib (macOS)
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build Hamlib from source
+        run: |
+          brew install autoconf automake libtool pkg-config libusb dylibbundler swig
+
+          HAMLIB_VER="${HAMLIB_VERSION}"
+          PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+          PYTAG=$(python3 -c "import sys; print(f'py{sys.version_info.major}{sys.version_info.minor}')")
+          ARCH=$(uname -m)  # arm64 on the macos-14 runner
+
+          PY_INC=$(python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
+          PY_EXT=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
+
+          wget -q https://github.com/Hamlib/Hamlib/releases/download/${HAMLIB_VER}/hamlib-${HAMLIB_VER}.tar.gz
+          tar -xzf hamlib-${HAMLIB_VER}.tar.gz
+
+          # Portable build only (rpath = @loader_path so the flat package is
+          # relocatable). `make install` also produces bin/rigctld,
+          # bin/rotctld, bin/rigctl, bin/rotctl.
+          cd hamlib-${HAMLIB_VER}
+          ./configure \
+            --prefix=$HOME/hamlib-portable-mac \
+            --disable-static \
+            LDFLAGS="-Wl,-rpath,@loader_path"
+          make -j$(sysctl -n hw.logicalcpu)
+          make install
+          cd ..
+
+          echo "=== \$HOME/hamlib-portable-mac/bin ===" && ls $HOME/hamlib-portable-mac/bin/
+
+          # Generate SWIG Python wrapper from .swg sources
+          swig -python -Wall \
+            -I$HOME/hamlib-portable-mac/include \
+            -Ihamlib-${HAMLIB_VER}/bindings \
+            -o hamlib-${HAMLIB_VER}/bindings/hamlib_wrap.c \
+            -outdir hamlib-${HAMLIB_VER}/bindings \
+            hamlib-${HAMLIB_VER}/bindings/hamlib.swg
+
+          PORT_PYSITE=$HOME/hamlib-portable-mac/lib/python${PYVER}/site-packages
+          mkdir -p ${PORT_PYSITE}
+          clang -shared -fPIC -O2 \
+            -undefined dynamic_lookup \
+            -I$HOME/hamlib-portable-mac/include \
+            -Ihamlib-${HAMLIB_VER}/include \
+            -I${PY_INC} \
+            hamlib-${HAMLIB_VER}/bindings/hamlib_wrap.c \
+            -L$HOME/hamlib-portable-mac/lib \
+            -lhamlib \
+            -Wl,-rpath,@loader_path \
+            -o ${PORT_PYSITE}/_Hamlib${PY_EXT}
+          cp hamlib-${HAMLIB_VER}/bindings/Hamlib.py ${PORT_PYSITE}/
+
+          DYLD_LIBRARY_PATH=$HOME/hamlib-portable-mac/lib \
+            PYTHONPATH=${PORT_PYSITE} \
+            python3 -c "import Hamlib; print('Hamlib version:', Hamlib.hamlib_version)"
+
+          PORTABLE_LIB=$HOME/hamlib-portable-mac/lib
+          PORTABLE_BIN=$HOME/hamlib-portable-mac/bin
+          HAMLIB_SO=${PORT_PYSITE}/_Hamlib${PY_EXT}
+
+          # Fix transitive dylib dependencies using dylibbundler so the
+          # binaries load without Homebrew installed on the end user's
+          # machine. Same treatment as FBSAT59's Python-binding-only build,
+          # extended to the CLI daemons/tools.
+          dylibbundler \
+            --bundle-deps \
+            --fix-file ${HAMLIB_SO} \
+            --dest-dir ${PORTABLE_LIB}/deps \
+            --install-path @loader_path/../deps \
+            --overwrite-dir
+          for bin in rigctld rotctld rigctl rotctl; do
+            dylibbundler \
+              --bundle-deps \
+              --fix-file ${PORTABLE_BIN}/${bin} \
+              --dest-dir ${PORTABLE_LIB}/deps \
+              --install-path @loader_path/../deps
+          done
+
+          # Package flat: all dylibs + Hamlib.py + _Hamlib.so + CLI tools in
+          # one directory
+          PKG="hamlib-macos-${ARCH}-${PYTAG}-${HAMLIB_VER}"
+          mkdir -p ${PKG}
+          cp ${PORT_PYSITE}/Hamlib.py ${PKG}/
+          cp ${PORT_PYSITE}/_Hamlib${PY_EXT} ${PKG}/
+          cp ${PORTABLE_LIB}/*.dylib ${PKG}/ 2>/dev/null || true
+          for bin in rigctld rotctld rigctl rotctl; do
+            cp ${PORTABLE_BIN}/${bin} ${PKG}/
+            chmod +x ${PKG}/${bin}
+          done
+          # Fix rpath inside each binary to point to @loader_path (flat layout)
+          install_name_tool -add_rpath @loader_path "${PKG}/_Hamlib${PY_EXT}" 2>/dev/null || true
+          for bin in rigctld rotctld rigctl rotctl; do
+            install_name_tool -add_rpath @loader_path "${PKG}/${bin}" 2>/dev/null || true
+          done
+          echo "${HAMLIB_VER}" > ${PKG}/version.txt
+
+          # Sanity check
+          ${PKG}/rigctld --version
+          ${PKG}/rotctld --version
+
+          tar -czf ${PKG}.tar.gz ${PKG}/
+          echo "HAMLIB_PKG=${PKG}.tar.gz" >> $GITHUB_ENV
+          echo "HAMLIB_PKG_NAME=${PKG}" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamlib-macos
+          path: ${{ env.HAMLIB_PKG }}
+
+      - name: Upload to hamlib-bundle release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view hamlib-bundle \
+            --repo "${{ github.repository }}" 2>/dev/null || \
+          gh release create hamlib-bundle \
+            --repo "${{ github.repository }}" \
+            --title "Hamlib Bundle" \
+            --notes "Pre-built Hamlib (rigctld/rotctld/rigctl/rotctl + Python bindings) used by ctld-launcher." \
+            --prerelease
+          gh release upload hamlib-bundle \
+            --repo "${{ github.repository }}" \
+            --clobber \
+            "${{ env.HAMLIB_PKG }}"
