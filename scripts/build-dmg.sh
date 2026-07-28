@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# build-dmg.sh — create a macOS .dmg from the PyInstaller .app bundle
+#
+# Prerequisites:
+#   - PyInstaller dist/ctld-launcher.app already built (run
+#     scripts/generate-icns.sh *before* pyinstoller, so the .app bundle
+#     itself already has the right icon — too late to fix that here)
+#
+# Output: dist/ctld-launcher.dmg
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DIST_DIR="$REPO_ROOT/dist"
+APP_BUNDLE="$DIST_DIR/ctld-launcher.app"
+DMG_PATH="$DIST_DIR/ctld-launcher.dmg"
+DMG_STAGING="$DIST_DIR/dmg-staging"
+
+# --------------------------------------------------------------------------- #
+# Sanity check
+# --------------------------------------------------------------------------- #
+if [[ ! -d "$APP_BUNDLE" ]]; then
+    echo "ERROR: .app bundle not found at $APP_BUNDLE" >&2
+    echo "       Run 'pyinstaller scripts/ctld-launcher.spec' first." >&2
+    exit 1
+fi
+
+# --------------------------------------------------------------------------- #
+# Staging directory
+# --------------------------------------------------------------------------- #
+rm -rf "$DMG_STAGING"
+mkdir -p "$DMG_STAGING"
+cp -r "$APP_BUNDLE" "$DMG_STAGING/"
+# Symlink to /Applications so the DMG shows a drag-install UI
+ln -s /Applications "$DMG_STAGING/Applications"
+
+# --------------------------------------------------------------------------- #
+# Create DMG
+# --------------------------------------------------------------------------- #
+rm -f "$DMG_PATH"
+
+for attempt in 1 2 3; do
+    hdiutil create \
+        -volname "ctld-launcher" \
+        -srcfolder "$DMG_STAGING" \
+        -ov \
+        -format UDZO \
+        "$DMG_PATH" && break
+    echo "hdiutil attempt $attempt failed (Resource busy?), retrying in 15s..."
+    sleep 15
+done
+if [[ ! -f "$DMG_PATH" ]]; then
+    echo "ERROR: hdiutil failed after 3 attempts" >&2
+    exit 1
+fi
+
+rm -rf "$DMG_STAGING"
+
+echo ""
+echo "DMG created: $DMG_PATH"

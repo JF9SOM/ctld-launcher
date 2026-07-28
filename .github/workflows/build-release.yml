@@ -1,0 +1,238 @@
+name: Build Release
+
+# Builds ctld-launcher for Linux (AppImage), Windows (NSIS installer), and
+# macOS (dmg), bundling this repo's own hamlib-bundle release (see
+# build-hamlib.yml) so end users don't need Hamlib installed system-wide.
+# Runs on version tag push, or manually via workflow_dispatch for testing
+# individual platforms without cutting a release.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Manual test build (no release) — which platform(s)?"
+        required: false
+        default: "linux"
+        type: choice
+        options:
+          - linux
+          - windows
+          - macos
+          - all
+      hamlib_version:
+        description: "hamlib-bundle version to fetch"
+        required: false
+        default: "4.7.1"
+
+jobs:
+  build-linux:
+    name: Build Linux (AppImage)
+    runs-on: ubuntu-22.04
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["linux","all"]'), github.event.inputs.platforms))
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libegl1 libfuse2
+
+      - name: Install Python dependencies
+        run: pip install -e ".[packaging]"
+
+      - name: Download hamlib-bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HAMLIB_VER: ${{ github.event.inputs.hamlib_version || '4.7.1' }}
+        run: |
+          mkdir -p hamlib-bundle
+          gh release download hamlib-bundle \
+            --repo "${{ github.repository }}" \
+            --pattern "hamlib-linux-x86_64-py311-${HAMLIB_VER}.tar.gz" \
+            --dir /tmp/hamlib-dl
+          tar -xzf /tmp/hamlib-dl/hamlib-linux-x86_64-py311-${HAMLIB_VER}.tar.gz \
+            -C hamlib-bundle --strip-components=1
+          chmod +x hamlib-bundle/rigctld hamlib-bundle/rotctld hamlib-bundle/rigctl hamlib-bundle/rotctl
+          echo "Hamlib bundle version: $(cat hamlib-bundle/version.txt)"
+
+      - name: Build with PyInstaller
+        run: PYTHONPATH=src pyinstaller scripts/ctld-launcher.spec --noconfirm
+
+      - name: Create AppImage
+        run: bash scripts/build-appimage.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: dist/ctld-launcher-x86_64.AppImage
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: dist/ctld-launcher-x86_64.AppImage
+          make_latest: true
+          overwrite_files: true
+
+  build-windows:
+    name: Build Windows (.exe)
+    runs-on: windows-latest
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["windows","all"]'), github.event.inputs.platforms))
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Determine version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Python dependencies
+        run: pip install -e ".[packaging]"
+
+      - name: Download hamlib-bundle
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $hamlibVer = "${{ github.event.inputs.hamlib_version }}"
+          if (-not $hamlibVer) { $hamlibVer = "4.7.1" }
+          New-Item -ItemType Directory -Force -Path hamlib-bundle | Out-Null
+          gh release download hamlib-bundle `
+            --repo "${{ github.repository }}" `
+            --pattern "hamlib-windows-x86_64-py311-$hamlibVer.zip" `
+            --dir "$env:RUNNER_TEMP\hamlib-dl"
+          Expand-Archive -Path "$env:RUNNER_TEMP\hamlib-dl\hamlib-windows-x86_64-py311-$hamlibVer.zip" `
+            -DestinationPath hamlib-bundle
+          Write-Host "Hamlib bundle version: $(Get-Content hamlib-bundle\version.txt)"
+
+      - name: Build with PyInstaller
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = "src"
+          pyinstaller scripts/ctld-launcher.spec --noconfirm --distpath dist
+          if ($LASTEXITCODE -ne 0) { throw "pyinstaller failed" }
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          $nsisCandidates = @(
+            "C:\Program Files (x86)\NSIS\makensis.exe",
+            "C:\Program Files\NSIS\makensis.exe"
+          )
+          $makensis = $nsisCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $makensis) {
+            choco install nsis -y --no-progress
+            $makensis = $nsisCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $makensis) { throw "makensis.exe not found after install" }
+          "$(Split-Path $makensis)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          $numericVer = ($ver -replace '-.*$', '')
+          $parts = $numericVer.Split('.')
+          while ($parts.Count -lt 4) { $parts += '0' }
+          $viVer = ($parts[0..3] -join '.')
+          makensis /DAPP_VERSION=$ver /DVIVERSION=$viVer scripts\installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis failed" }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/ctld-launcher-Setup.exe
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: dist/ctld-launcher-Setup.exe
+          make_latest: true
+          overwrite_files: true
+
+  build-macos:
+    name: Build macOS (.dmg)
+    runs-on: macos-14
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["macos","all"]'), github.event.inputs.platforms))
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -e ".[packaging]"
+
+      - name: Download hamlib-bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HAMLIB_VER: ${{ github.event.inputs.hamlib_version || '4.7.1' }}
+        run: |
+          ARCH=$(uname -m)
+          mkdir -p hamlib-bundle
+          gh release download hamlib-bundle \
+            --repo "${{ github.repository }}" \
+            --pattern "hamlib-macos-${ARCH}-py311-${HAMLIB_VER}.tar.gz" \
+            --dir /tmp/hamlib-dl
+          tar -xzf /tmp/hamlib-dl/hamlib-macos-${ARCH}-py311-${HAMLIB_VER}.tar.gz \
+            -C hamlib-bundle --strip-components=1
+          chmod +x hamlib-bundle/rigctld hamlib-bundle/rotctld hamlib-bundle/rigctl hamlib-bundle/rotctl
+          echo "Hamlib bundle version: $(cat hamlib-bundle/version.txt)"
+
+      - name: Generate icon.icns
+        run: bash scripts/generate-icns.sh
+
+      - name: Build with PyInstaller
+        run: PYTHONPATH=src pyinstaller scripts/ctld-launcher.spec --noconfirm
+
+      - name: Create DMG
+        run: bash scripts/build-dmg.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/ctld-launcher.dmg
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: dist/ctld-launcher.dmg
+          make_latest: true

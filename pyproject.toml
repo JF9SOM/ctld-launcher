@@ -38,6 +38,10 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.9",
 ]
+packaging = [
+    "pyinstaller>=6.4",
+    "Pillow>=10.0",  # icon generation (assets/generate_icons.py)
+]
 
 [project.scripts]
 ctld-launcher = "ctld_launcher.main:main"

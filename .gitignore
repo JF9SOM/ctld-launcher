@@ -34,6 +34,9 @@ htmlcov/
 *.AppImage
 *.dmg
 *.exe
+hamlib-bundle/
+# macOS-only tools (sips/iconutil) generate this at build time from icon_1024.png
+assets/icon.icns
 
 # OS
 .DS_Store
