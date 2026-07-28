@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -26,8 +27,13 @@ class Profile:
     name: str
     kind: ProfileKind
     model_id: int
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
     port: str = ""
     serial_speed: int | None = None
+    data_bits: int | None = None
+    stop_bits: int | None = None
+    serial_parity: str | None = None
+    serial_handshake: str | None = None
     listen_address: str = "127.0.0.1"
     listen_port: int = DEFAULT_RIG_PORT
     debug_level: int = 0

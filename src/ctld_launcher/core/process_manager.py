@@ -34,6 +34,17 @@ def build_command(executable: str, profile: Profile) -> list[str]:
         command += ["-r", profile.port]
     if profile.serial_speed:
         command += ["-s", str(profile.serial_speed)]
+    serial_conf = []
+    if profile.data_bits:
+        serial_conf.append(f"data_bits={profile.data_bits}")
+    if profile.stop_bits:
+        serial_conf.append(f"stop_bits={profile.stop_bits}")
+    if profile.serial_parity:
+        serial_conf.append(f"serial_parity={profile.serial_parity}")
+    if profile.serial_handshake:
+        serial_conf.append(f"serial_handshake={profile.serial_handshake}")
+    if serial_conf:
+        command += ["-C", ",".join(serial_conf)]
     command += ["-t", str(profile.listen_port)]
     if profile.listen_address:
         command += ["-T", profile.listen_address]

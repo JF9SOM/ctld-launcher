@@ -35,6 +35,23 @@ def test_build_command_rig() -> None:
     ]
 
 
+def test_build_command_with_serial_conf() -> None:
+    profile = Profile(
+        name="IC-9700",
+        kind=ProfileKind.RIG,
+        model_id=3081,
+        port="/dev/ttyUSB0",
+        data_bits=8,
+        stop_bits=1,
+        serial_parity="None",
+        serial_handshake="Hardware",
+    )
+    command = build_command("rigctld", profile)
+    assert "-C" in command
+    conf = command[command.index("-C") + 1]
+    assert conf == "data_bits=8,stop_bits=1,serial_parity=None,serial_handshake=Hardware"
+
+
 def test_build_command_minimal_rig() -> None:
     profile = Profile(name="Dummy", kind=ProfileKind.RIG, model_id=1)
     assert build_command("rigctld", profile) == [

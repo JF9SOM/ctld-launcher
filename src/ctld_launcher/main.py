@@ -2,20 +2,23 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
-
-class MainWindow(QMainWindow):
-    def __init__(self) -> None:
-        super().__init__()
-        self.setWindowTitle("ctld-launcher")
-        self.setCentralWidget(QLabel("ctld-launcher"))
+from ctld_launcher.ui.main_window import MainWindow
+from ctld_launcher.ui.tray import TrayIcon
 
 
 def main() -> None:
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+
     window = MainWindow()
-    window.show()
+    _tray = TrayIcon(window, app)  # kept alive for the app's lifetime
+    app.aboutToQuit.connect(window.stop_all)
+
+    if not QSystemTrayIcon.isSystemTrayAvailable():
+        window.show()
+
     sys.exit(app.exec())
 
 
