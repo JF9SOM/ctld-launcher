@@ -3,7 +3,12 @@ from __future__ import annotations
 import stat
 from pathlib import Path
 
-from ctld_launcher.core.hamlib_models import list_models, models_by_manufacturer, parse_model_list
+from ctld_launcher.core.hamlib_models import (
+    HamlibModel,
+    list_models,
+    models_by_manufacturer,
+    parse_model_list,
+)
 
 FAKE_LIST = Path(__file__).parent / "_fake_hamlib_list.py"
 
@@ -62,4 +67,21 @@ def test_models_by_manufacturer_groups_correctly() -> None:
     FAKE_LIST.chmod(FAKE_LIST.stat().st_mode | stat.S_IXUSR)
     grouped = models_by_manufacturer(str(FAKE_LIST))
     assert set(grouped["Yaesu"]) == {(1001, "FT-847"), (1035, "FT-991")}
-    assert (1, "Dummy") in grouped["Hamlib"]
+
+
+def test_models_by_manufacturer_sorted_alphabetically(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # --list prints manufacturers in Hamlib's internal backend-registration
+    # order (not alphabetical) — this is what made "Yaesu" hard to find in
+    # a long dropdown. Feed a deliberately non-alphabetical order here and
+    # confirm models_by_manufacturer() fixes it up regardless of input order.
+    unordered = (
+        HamlibModel(model_id=2, manufacturer="Yaesu", name="FT-991", status="Stable"),
+        HamlibModel(model_id=3, manufacturer="Icom", name="IC-9700", status="Stable"),
+        HamlibModel(model_id=1, manufacturer="hamlib", name="Dummy", status="Stable"),
+        HamlibModel(model_id=4, manufacturer="Kenwood", name="TS-2000", status="Stable"),
+    )
+    monkeypatch.setattr(
+        "ctld_launcher.core.hamlib_models._cached_list_models", lambda executable: unordered
+    )
+    grouped = models_by_manufacturer("irrelevant")
+    assert list(grouped.keys()) == ["hamlib", "Icom", "Kenwood", "Yaesu"]

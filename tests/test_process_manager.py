@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from ctld_launcher.core.process_manager import CtldProcess, CtldProcessError, build_command
+from ctld_launcher.core.process_manager import (
+    CtldProcess,
+    CtldProcessError,
+    build_command,
+    build_test_command,
+)
 from ctld_launcher.core.profile import Profile, ProfileKind
 
 FAKE_CTLD = Path(__file__).parent / "_fake_ctld.py"
@@ -69,6 +74,45 @@ def test_build_command_minimal_rig() -> None:
         "-T",
         "127.0.0.1",
     ]
+
+
+def test_build_test_command_rig_queries_get_freq() -> None:
+    profile = Profile(
+        name="IC-9700",
+        kind=ProfileKind.RIG,
+        model_id=3081,
+        port="/dev/ttyUSB0",
+        serial_speed=19200,
+    )
+    assert build_test_command("rigctl", profile) == [
+        "rigctl",
+        "-m",
+        "3081",
+        "-r",
+        "/dev/ttyUSB0",
+        "-s",
+        "19200",
+        "f",
+    ]
+
+
+def test_build_test_command_rotator_queries_get_pos() -> None:
+    profile = Profile(name="SPID", kind=ProfileKind.ROTATOR, model_id=401, port="/dev/ttyUSB1")
+    assert build_test_command("rotctl", profile) == [
+        "rotctl",
+        "-m",
+        "401",
+        "-r",
+        "/dev/ttyUSB1",
+        "p",
+    ]
+
+
+def test_build_test_command_omits_network_flags() -> None:
+    profile = Profile(name="Dummy", kind=ProfileKind.RIG, model_id=1, listen_port=4599)
+    command = build_test_command("rigctl", profile)
+    assert "-t" not in command
+    assert "-T" not in command
 
 
 def test_process_start_stop_captures_output() -> None:

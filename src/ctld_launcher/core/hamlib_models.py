@@ -91,11 +91,16 @@ def _cached_list_models(executable: str) -> tuple[HamlibModel, ...]:
 def models_by_manufacturer(executable: str) -> dict[str, list[tuple[int, str]]]:
     """Group `--list` output as {manufacturer: [(model_id, name), ...]}, cached
     per executable path for the lifetime of the process.
+
+    Manufacturers are sorted alphabetically (case-insensitive) — `--list`
+    itself prints them in Hamlib's internal backend-registration order,
+    which is not alphabetical and made e.g. "Yaesu" hard to find in a long
+    dropdown.
     """
     grouped: dict[str, list[tuple[int, str]]] = {}
     for model in _cached_list_models(executable):
         grouped.setdefault(model.manufacturer, []).append((model.model_id, model.name))
-    return grouped
+    return dict(sorted(grouped.items(), key=lambda item: item[0].casefold()))
 
 
 def default_model_id(kind: ProfileKind) -> int:

@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO
 
-from ctld_launcher.core.profile import Profile
+from ctld_launcher.core.profile import Profile, ProfileKind
 
 
 class CtldProcessError(Exception):
@@ -23,6 +23,19 @@ def _optional_log_file(path: str | None) -> Iterator[IO[str] | None]:
         yield fh
 
 
+def _serial_conf_args(profile: Profile) -> list[str]:
+    serial_conf = []
+    if profile.data_bits:
+        serial_conf.append(f"data_bits={profile.data_bits}")
+    if profile.stop_bits:
+        serial_conf.append(f"stop_bits={profile.stop_bits}")
+    if profile.serial_parity:
+        serial_conf.append(f"serial_parity={profile.serial_parity}")
+    if profile.serial_handshake:
+        serial_conf.append(f"serial_handshake={profile.serial_handshake}")
+    return ["-C", ",".join(serial_conf)] if serial_conf else []
+
+
 def build_command(executable: str, profile: Profile) -> list[str]:
     """Translate a Profile into rigctld/rotctld CLI arguments.
 
@@ -34,23 +47,31 @@ def build_command(executable: str, profile: Profile) -> list[str]:
         command += ["-r", profile.port]
     if profile.serial_speed:
         command += ["-s", str(profile.serial_speed)]
-    serial_conf = []
-    if profile.data_bits:
-        serial_conf.append(f"data_bits={profile.data_bits}")
-    if profile.stop_bits:
-        serial_conf.append(f"stop_bits={profile.stop_bits}")
-    if profile.serial_parity:
-        serial_conf.append(f"serial_parity={profile.serial_parity}")
-    if profile.serial_handshake:
-        serial_conf.append(f"serial_handshake={profile.serial_handshake}")
-    if serial_conf:
-        command += ["-C", ",".join(serial_conf)]
+    command += _serial_conf_args(profile)
     command += ["-t", str(profile.listen_port)]
     if profile.listen_address:
         command += ["-T", profile.listen_address]
     if profile.debug_level > 0:
         command.append("-" + "v" * min(profile.debug_level, 5))
     command += list(profile.extra_args)
+    return command
+
+
+def build_test_command(executable: str, profile: Profile) -> list[str]:
+    """Translate a Profile into a one-shot rigctl/rotctl connectivity check.
+
+    Unlike build_command() (for rigctld/rotctld, which stay running as a TCP
+    daemon), this runs a single read-only query directly against the serial
+    port and exits — no network listener, no -t/-T. Uses "f" (get_freq) for
+    rigs and "p" (get_pos) for rotators.
+    """
+    command = [executable, "-m", str(profile.model_id)]
+    if profile.port:
+        command += ["-r", profile.port]
+    if profile.serial_speed:
+        command += ["-s", str(profile.serial_speed)]
+    command += _serial_conf_args(profile)
+    command.append("f" if profile.kind == ProfileKind.RIG else "p")
     return command
 
 

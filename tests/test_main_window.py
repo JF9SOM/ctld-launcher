@@ -7,10 +7,15 @@ from ctld_launcher.core.profile import ProfileKind, ProfileStore
 from ctld_launcher.ui.main_window import MainWindow
 
 FAKE_CTLD = Path(__file__).parent / "_fake_ctld.py"
+FAKE_RIGCTL = Path(__file__).parent / "_fake_rigctl.py"
 
 
 def _fake_resolver(kind: ProfileKind) -> str:
     return "rigctld" if kind == ProfileKind.RIG else "rotctld"
+
+
+def _fake_test_resolver(kind: ProfileKind) -> str:
+    return "rigctl" if kind == ProfileKind.RIG else "rotctl"
 
 
 class FakeAutostartBackend:
@@ -36,11 +41,20 @@ class FakeAutostartBackend:
 
 
 def _make_window(  # type: ignore[no-untyped-def]
-    tmp_path, qtbot, autostart_backend=None, executable_resolver=_fake_resolver
+    tmp_path,
+    qtbot,
+    autostart_backend=None,
+    executable_resolver=_fake_resolver,
+    test_executable_resolver=_fake_test_resolver,
 ) -> MainWindow:
     store = ProfileStore(path=tmp_path / "profiles.json")
     kwargs = {} if autostart_backend is None else {"autostart_backend": autostart_backend}
-    window = MainWindow(store=store, executable_resolver=executable_resolver, **kwargs)
+    window = MainWindow(
+        store=store,
+        executable_resolver=executable_resolver,
+        test_executable_resolver=test_executable_resolver,
+        **kwargs,
+    )
     qtbot.addWidget(window)
     return window
 
@@ -152,3 +166,39 @@ def test_start_autostart_profiles_starts_only_flagged_ones(tmp_path, qtbot) -> N
         assert window.is_running(unflagged.id) is False
     finally:
         window.stop_all()
+
+
+def test_manufacturer_and_model_combos_are_searchable(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: "rigctld")
+    window._add_profile(ProfileKind.RIG)
+    assert window._manufacturer_combo.isEditable() is True
+    assert window._manufacturer_combo.completer() is not None
+    assert window._model_combo.isEditable() is True
+    assert window._model_combo.completer() is not None
+
+
+def test_test_connection_reports_success(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    FAKE_RIGCTL.chmod(FAKE_RIGCTL.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, test_executable_resolver=lambda kind: str(FAKE_RIGCTL))
+    window._add_profile(ProfileKind.RIG)
+
+    window._on_test_connection()
+
+    assert "✓" in window._test_connection_result.text()
+    assert "145000000" in window._test_connection_result.text()
+    assert window._test_connection_button.isEnabled() is True
+    assert window._test_connection_button.text() == "接続テスト"
+
+
+def test_test_connection_reports_missing_executable(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    from ctld_launcher.core.hamlib_locator import ExecutableNotFoundError
+
+    def missing(kind: ProfileKind) -> str:
+        raise ExecutableNotFoundError("rigctl not found")
+
+    window = _make_window(tmp_path, qtbot, test_executable_resolver=missing)
+    window._add_profile(ProfileKind.RIG)
+
+    window._on_test_connection()
+
+    assert "✗" in window._test_connection_result.text()

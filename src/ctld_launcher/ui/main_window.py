@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import shlex
+import subprocess
 from collections.abc import Callable
 
 from PySide6.QtCore import Qt, Signal
@@ -9,6 +10,7 @@ from PySide6.QtGui import QCloseEvent, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QCompleter,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -29,9 +31,13 @@ from PySide6.QtWidgets import (
 
 from ctld_launcher.core import autostart as autostart_module
 from ctld_launcher.core.autostart import AutostartBackend, AutostartError
-from ctld_launcher.core.hamlib_locator import ExecutableNotFoundError, find_executable
+from ctld_launcher.core.hamlib_locator import (
+    ExecutableNotFoundError,
+    find_executable,
+    find_test_executable,
+)
 from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufacturer
-from ctld_launcher.core.process_manager import CtldProcess, build_command
+from ctld_launcher.core.process_manager import CtldProcess, build_command, build_test_command
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
 
@@ -81,6 +87,20 @@ def _int_or_none(combo: QComboBox) -> int | None:
     return None if text == UNSET else int(text)
 
 
+def _refresh_combo_search(combo: QComboBox) -> None:
+    """Make combo searchable by substring, case-insensitive (e.g. typing
+    "yaesu" finds "Yaesu" regardless of where it sits in the list). Must be
+    called again whenever the combo's items are repopulated, since the
+    completer is bound to a snapshot of combo.model().
+    """
+    combo.setEditable(True)
+    completer = QCompleter(combo.model(), combo)
+    completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+    completer.setFilterMode(Qt.MatchFlag.MatchContains)
+    completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+    combo.setCompleter(completer)
+
+
 class MainWindow(QMainWindow):
     """Sidebar of rig/rotator profiles + a detail form to configure and run each one."""
 
@@ -92,6 +112,7 @@ class MainWindow(QMainWindow):
         self,
         store: ProfileStore | None = None,
         executable_resolver: Callable[[ProfileKind], str] = find_executable,
+        test_executable_resolver: Callable[[ProfileKind], str] = find_test_executable,
         autostart_backend: AutostartBackend = autostart_module,
     ) -> None:
         super().__init__()
@@ -102,6 +123,7 @@ class MainWindow(QMainWindow):
         self._profiles: list[Profile] = self._store.load()
         self._processes: dict[str, CtldProcess] = {}
         self._executable_resolver = executable_resolver
+        self._test_executable_resolver = test_executable_resolver
         self._autostart = autostart_backend
         self._current_id: str | None = None
         self._updating_form = False
@@ -212,12 +234,16 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(group)
         self._manufacturer_combo = QComboBox()
         self._manufacturer_combo.currentIndexChanged.connect(self._on_manufacturer_changed)
+        _refresh_combo_search(self._manufacturer_combo)
         self._model_combo = QComboBox()
         self._model_combo.currentIndexChanged.connect(self._on_model_combo_changed)
+        _refresh_combo_search(self._model_combo)
         self._model_id_spin = QSpinBox()
         self._model_id_spin.setRange(0, 999_999)
         self._model_id_spin.valueChanged.connect(self._on_field_changed)
+        layout.addWidget(QLabel("メーカー"))
         layout.addWidget(self._manufacturer_combo)
+        layout.addWidget(QLabel("機種"))
         layout.addWidget(self._model_combo)
         layout.addWidget(QLabel("モデルID"))
         layout.addWidget(self._model_id_spin)
@@ -228,6 +254,7 @@ class MainWindow(QMainWindow):
         outer = QVBoxLayout(group)
 
         row = QHBoxLayout()
+        row.addWidget(QLabel("ポート"))
         self._port_combo = QComboBox()
         self._port_combo.setEditable(True)
         self._port_combo.currentTextChanged.connect(self._on_field_changed)
@@ -235,14 +262,26 @@ class MainWindow(QMainWindow):
         refresh_button.setText("⟳")
         refresh_button.setToolTip("ポートを再検出")
         refresh_button.clicked.connect(self._refresh_ports)
+        row.addWidget(self._port_combo, stretch=2)
+        row.addWidget(refresh_button)
+        row.addWidget(QLabel("速度"))
         self._baud_combo = QComboBox()
         self._baud_combo.setEditable(True)
         self._baud_combo.addItems(BAUD_RATES)
         self._baud_combo.currentTextChanged.connect(self._on_field_changed)
-        row.addWidget(self._port_combo, stretch=2)
-        row.addWidget(refresh_button)
         row.addWidget(self._baud_combo, stretch=1)
         outer.addLayout(row)
+
+        test_row = QHBoxLayout()
+        self._test_connection_button = QPushButton("接続テスト")
+        self._test_connection_button.setToolTip(
+            "rigctl/rotctlで一度だけ問い合わせて、ポート・速度・機種設定が正しいか確認します"
+        )
+        self._test_connection_button.clicked.connect(self._on_test_connection)
+        self._test_connection_result = QLabel()
+        test_row.addWidget(self._test_connection_button)
+        test_row.addWidget(self._test_connection_result, stretch=1)
+        outer.addLayout(test_row)
 
         self._advanced_toggle = QToolButton()
         self._advanced_toggle.setText("詳細設定(データビット・パリティ・フロー制御)")
@@ -414,6 +453,7 @@ class MainWindow(QMainWindow):
             self._model_id_spin,
             self._port_combo,
             self._baud_combo,
+            self._test_connection_button,
             self._listen_address_edit,
             self._listen_port_spin,
             self._debug_level_combo,
@@ -427,10 +467,12 @@ class MainWindow(QMainWindow):
         try:
             self._name_edit.setText(profile.name)
             self._profile_autostart_checkbox.setChecked(profile.auto_start)
+            self._test_connection_result.setText("")
 
             models = self._models_for_kind(profile.kind)
             self._manufacturer_combo.clear()
             self._manufacturer_combo.addItems(list(models))
+            _refresh_combo_search(self._manufacturer_combo)
             manufacturer = self._manufacturer_for_model(models, profile.model_id)
             if manufacturer is not None:
                 _set_combo_text(self._manufacturer_combo, manufacturer)
@@ -481,6 +523,7 @@ class MainWindow(QMainWindow):
         self._model_combo.clear()
         for model_id, name in models.get(manufacturer, []):
             self._model_combo.addItem(name, userData=model_id)
+        _refresh_combo_search(self._model_combo)
         self._model_combo.blockSignals(False)
 
     def _on_manufacturer_changed(self) -> None:
@@ -511,6 +554,41 @@ class MainWindow(QMainWindow):
         self._port_combo.clear()
         self._port_combo.addItems(list_serial_ports())
         self._port_combo.setCurrentText(current)
+
+    def _on_test_connection(self) -> None:
+        profile = self._selected_profile()
+        if profile is None:
+            return
+        try:
+            executable = self._test_executable_resolver(profile.kind)
+        except ExecutableNotFoundError as exc:
+            self._test_connection_result.setText(f"✗ {exc}")
+            return
+
+        command = build_test_command(executable, profile)
+        self._test_connection_button.setEnabled(False)
+        self._test_connection_button.setText("テスト中…")
+        self._test_connection_result.setText("")
+        try:
+            result = subprocess.run(  # noqa: S603
+                command,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except subprocess.TimeoutExpired:
+            self._test_connection_result.setText("✗ タイムアウト(ポートが応答しません)")
+        except OSError as exc:
+            self._test_connection_result.setText(f"✗ 実行できませんでした: {exc}")
+        else:
+            output = (result.stdout or result.stderr).strip()
+            if result.returncode == 0 and output:
+                self._test_connection_result.setText(f"✓ 応答: {output}")
+            else:
+                self._test_connection_result.setText(f"✗ {output or 'エラー'}")
+        finally:
+            self._test_connection_button.setEnabled(True)
+            self._test_connection_button.setText("接続テスト")
 
     def _browse_log_file(self) -> None:
         path, _selected_filter = QFileDialog.getSaveFileName(

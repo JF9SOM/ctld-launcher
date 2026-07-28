@@ -1,4 +1,4 @@
-"""Locates the rigctld/rotctld executables to launch.
+"""Locates the rigctld/rotctld/rigctl/rotctl executables to launch.
 
 When packaged (PyInstaller, see scripts/ctld-launcher.spec), the
 hamlib-bundle release (rigctld/rotctld/rigctl/rotctl + libhamlib + the
@@ -20,14 +20,18 @@ from pathlib import Path
 
 from ctld_launcher.core.profile import ProfileKind
 
-_EXECUTABLE_NAME = {
+_DAEMON_NAME = {
     ProfileKind.RIG: "rigctld",
     ProfileKind.ROTATOR: "rotctld",
+}
+_TEST_TOOL_NAME = {
+    ProfileKind.RIG: "rigctl",
+    ProfileKind.ROTATOR: "rotctl",
 }
 
 
 class ExecutableNotFoundError(Exception):
-    """Raised when rigctld/rotctld cannot be located."""
+    """Raised when a Hamlib executable cannot be located."""
 
 
 def bundled_hamlib_dir() -> Path | None:
@@ -44,8 +48,7 @@ def bundled_hamlib_dir() -> Path | None:
     return candidate if candidate.is_dir() else None
 
 
-def find_executable(kind: ProfileKind) -> str:
-    name = _EXECUTABLE_NAME[kind]
+def _find(name: str) -> str:
     if sys.platform == "win32":
         name += ".exe"
 
@@ -59,3 +62,13 @@ def find_executable(kind: ProfileKind) -> str:
     if path is None:
         raise ExecutableNotFoundError(f"{name} not found (bundled or on PATH)")
     return path
+
+
+def find_executable(kind: ProfileKind) -> str:
+    """Resolve rigctld/rotctld — the long-running network daemon."""
+    return _find(_DAEMON_NAME[kind])
+
+
+def find_test_executable(kind: ProfileKind) -> str:
+    """Resolve rigctl/rotctl — the one-shot CLI tool used for connection tests."""
+    return _find(_TEST_TOOL_NAME[kind])

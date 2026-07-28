@@ -8,6 +8,7 @@ from ctld_launcher.core.hamlib_locator import (
     ExecutableNotFoundError,
     bundled_hamlib_dir,
     find_executable,
+    find_test_executable,
 )
 from ctld_launcher.core.profile import ProfileKind
 
@@ -63,3 +64,11 @@ def test_find_executable_appends_exe_suffix_on_windows(tmp_path, monkeypatch) ->
     monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
 
     assert find_executable(ProfileKind.RIG) == str(hamlib_dir / "rigctld.exe")
+
+
+def test_find_test_executable_resolves_rigctl_and_rotctl(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delattr(sys, "_MEIPASS", raising=False)
+    monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
+
+    assert find_test_executable(ProfileKind.RIG) == "/usr/bin/rigctl"
+    assert find_test_executable(ProfileKind.ROTATOR) == "/usr/bin/rotctl"
