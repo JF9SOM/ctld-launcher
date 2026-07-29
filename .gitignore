@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 src/ctld_launcher/_version.py
+src/version.txt
 *.py[cod]
 *.pyo
 *.pyd

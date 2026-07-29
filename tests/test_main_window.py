@@ -66,6 +66,14 @@ def test_main_window_title(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-
     assert window.windowTitle() == "ctld-launcher"
 
 
+def test_version_label_shown_near_top_of_sidebar(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    from ctld_launcher.version import get_version
+
+    window = _make_window(tmp_path, qtbot)
+    assert get_version() in window._version_label.text()
+    assert "ctld-launcher" in window._version_label.text()
+
+
 def test_add_rig_profile_appears_in_list_and_store(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
     window = _make_window(tmp_path, qtbot)
     window._add_profile(ProfileKind.RIG)

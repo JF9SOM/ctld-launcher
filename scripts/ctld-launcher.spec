@@ -52,6 +52,14 @@ datas = [
     (str(ROOT / "locale"), "locale"),
 ] + hamlib_datas
 
+# version.txt: written by build-release.yml from the pushed git tag before
+# this spec runs; read back at runtime by src/ctld_launcher/version.py via
+# sys._MEIPASS. Only present in CI — harmless to skip locally (dev runs
+# fall back to `git describe`, see version.py).
+_version_file = ROOT / "src" / "version.txt"
+if _version_file.exists():
+    datas.append((str(_version_file), "."))
+
 hidden_imports = [
     "PySide6.QtSvg",
 ]

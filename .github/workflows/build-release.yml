@@ -65,6 +65,15 @@ jobs:
           chmod +x hamlib-bundle/rigctld hamlib-bundle/rotctld hamlib-bundle/rigctl hamlib-bundle/rotctl
           echo "Hamlib bundle version: $(cat hamlib-bundle/version.txt)"
 
+      - name: Write version.txt
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "${GITHUB_REF_NAME#v}" > src/version.txt
+          else
+            echo "0.0.0-dev" > src/version.txt
+          fi
+          echo "App version: $(cat src/version.txt)"
+
       - name: Build with PyInstaller
         run: PYTHONPATH=src pyinstaller scripts/ctld-launcher.spec --noconfirm
 
@@ -131,6 +140,12 @@ jobs:
           Expand-Archive -Path "$env:RUNNER_TEMP\hamlib-dl\hamlib-windows-x86_64-py311-$hamlibVer.zip" `
             -DestinationPath hamlib-bundle
           Write-Host "Hamlib bundle version: $(Get-Content hamlib-bundle\version.txt)"
+
+      - name: Write version.txt
+        shell: pwsh
+        run: |
+          "${{ steps.ver.outputs.version }}" | Out-File -FilePath src\version.txt -Encoding ASCII -NoNewline
+          Write-Host "App version: $(Get-Content src\version.txt)"
 
       - name: Build with PyInstaller
         shell: pwsh
@@ -216,6 +231,15 @@ jobs:
 
       - name: Generate icon.icns
         run: bash scripts/generate-icns.sh
+
+      - name: Write version.txt
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "${GITHUB_REF_NAME#v}" > src/version.txt
+          else
+            echo "0.0.0-dev" > src/version.txt
+          fi
+          echo "App version: $(cat src/version.txt)"
 
       - name: Build with PyInstaller
         run: PYTHONPATH=src pyinstaller scripts/ctld-launcher.spec --noconfirm

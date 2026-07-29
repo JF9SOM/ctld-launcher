@@ -45,6 +45,7 @@ from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
 from ctld_launcher.core.usb_watch import UsbHotplugTracker, UsbIdentity, identity_for_port
 from ctld_launcher.i18n import _, get_language, set_language
+from ctld_launcher.version import get_version
 
 USB_POLL_INTERVAL_MS = 2000
 
@@ -188,6 +189,10 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self) -> QWidget:
         container = QWidget()
         layout = QVBoxLayout(container)
+
+        self._version_label = QLabel(f"ctld-launcher v{get_version()}")
+        self._version_label.setStyleSheet("color: gray; font-size: 10px;")
+        layout.addWidget(self._version_label)
 
         # Language names are deliberately NOT translated via _() — each
         # option must always read in its own language, or a user who picks

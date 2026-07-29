@@ -8,6 +8,7 @@ from ctld_launcher.core.autostart import MINIMIZED_FLAG
 from ctld_launcher.i18n import detect_system_language, set_language
 from ctld_launcher.ui.main_window import MainWindow
 from ctld_launcher.ui.tray import TrayIcon
+from ctld_launcher.version import get_version
 
 
 def should_show_on_startup(argv: list[str]) -> bool:
@@ -24,6 +25,8 @@ def should_show_on_startup(argv: list[str]) -> bool:
 def main() -> None:
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    app.setApplicationName("ctld-launcher")
+    app.setApplicationVersion(get_version())
 
     # Must run before any widget is built: ui/main_window.py's translatable
     # string lists (e.g. _debug_levels()) are evaluated lazily inside
