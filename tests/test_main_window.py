@@ -202,3 +202,37 @@ def test_test_connection_reports_missing_executable(tmp_path, qtbot) -> None:  #
     window._on_test_connection()
 
     assert "✗" in window._test_connection_result.text()
+
+
+def test_language_switch_retranslates_widgets(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    from ctld_launcher.i18n import get_language, set_language
+
+    set_language("en")
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    assert window._start_button.text() == "Start"
+    assert window._model_group.title() == "Model"
+
+    ja_index = window._language_combo.findData("ja")
+    window._language_combo.setCurrentIndex(ja_index)
+
+    try:
+        assert get_language() == "ja"
+        assert window._start_button.text() == "起動"
+        assert window._model_group.title() == "モデル"
+        assert window._manufacturer_label.text() == "メーカー"
+        # profile.model_id / port / etc. must survive the retranslation
+        assert window.profiles[0].model_id == 1
+    finally:
+        set_language("en")
+
+
+def test_language_combo_reflects_current_language_on_open(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    from ctld_launcher.i18n import set_language
+
+    set_language("ja")
+    try:
+        window = _make_window(tmp_path, qtbot)
+        assert window._language_combo.currentData() == "ja"
+    finally:
+        set_language("en")

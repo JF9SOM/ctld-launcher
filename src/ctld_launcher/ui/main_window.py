@@ -40,7 +40,7 @@ from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufac
 from ctld_launcher.core.process_manager import CtldProcess, build_command, build_test_command
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
-from ctld_launcher.i18n import _
+from ctld_launcher.i18n import _, get_language, set_language
 
 BAUD_RATES = ["1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"]
 
@@ -176,22 +176,35 @@ class MainWindow(QMainWindow):
         container = QWidget()
         layout = QVBoxLayout(container)
 
+        # Language names are deliberately NOT translated via _() — each
+        # option must always read in its own language, or a user who picks
+        # the wrong one by accident could get stuck unable to read the UI
+        # well enough to switch back.
+        self._language_combo = QComboBox()
+        self._language_combo.addItem("English", userData="en")
+        self._language_combo.addItem("日本語", userData="ja")
+        current_index = self._language_combo.findData(get_language())
+        if current_index >= 0:
+            self._language_combo.setCurrentIndex(current_index)
+        self._language_combo.currentIndexChanged.connect(self._on_language_changed)
+        layout.addWidget(self._language_combo)
+
         add_row = QHBoxLayout()
-        add_rig_button = QPushButton(_("+ Rig"))
-        add_rig_button.clicked.connect(lambda: self._add_profile(ProfileKind.RIG))
-        add_rotator_button = QPushButton(_("+ Rotator"))
-        add_rotator_button.clicked.connect(lambda: self._add_profile(ProfileKind.ROTATOR))
-        add_row.addWidget(add_rig_button)
-        add_row.addWidget(add_rotator_button)
+        self._add_rig_button = QPushButton(_("+ Rig"))
+        self._add_rig_button.clicked.connect(lambda: self._add_profile(ProfileKind.RIG))
+        self._add_rotator_button = QPushButton(_("+ Rotator"))
+        self._add_rotator_button.clicked.connect(lambda: self._add_profile(ProfileKind.ROTATOR))
+        add_row.addWidget(self._add_rig_button)
+        add_row.addWidget(self._add_rotator_button)
         layout.addLayout(add_row)
 
         self._list = QListWidget()
         self._list.currentItemChanged.connect(self._on_selection_changed)
         layout.addWidget(self._list)
 
-        remove_button = QPushButton(_("Remove"))
-        remove_button.clicked.connect(self._remove_selected)
-        layout.addWidget(remove_button)
+        self._remove_button = QPushButton(_("Remove"))
+        self._remove_button.clicked.connect(self._remove_selected)
+        layout.addWidget(self._remove_button)
 
         self._autostart_checkbox = QCheckBox(_("Start at login"))
         self._autostart_checkbox.setEnabled(self._autostart.is_supported())
@@ -227,7 +240,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._build_debug_group())
         layout.addWidget(self._build_extra_args_group())
 
-        layout.addWidget(QLabel(_("Command")))
+        self._command_label = QLabel(_("Command"))
+        layout.addWidget(self._command_label)
         self._command_preview = QLineEdit()
         self._command_preview.setReadOnly(True)
         self._command_preview.setStyleSheet("font-family: monospace;")
@@ -245,7 +259,8 @@ class MainWindow(QMainWindow):
         button_row.addWidget(self._restart_button)
         layout.addLayout(button_row)
 
-        layout.addWidget(QLabel(_("Log")))
+        self._log_label = QLabel(_("Log"))
+        layout.addWidget(self._log_label)
         self._log_view = QPlainTextEdit()
         self._log_view.setReadOnly(True)
         self._log_view.setStyleSheet("font-family: monospace;")
@@ -255,8 +270,8 @@ class MainWindow(QMainWindow):
         return container
 
     def _build_model_group(self) -> QGroupBox:
-        group = QGroupBox(_("Model"))
-        layout = QHBoxLayout(group)
+        self._model_group = QGroupBox(_("Model"))
+        layout = QHBoxLayout(self._model_group)
         self._manufacturer_combo = QComboBox()
         self._manufacturer_combo.currentIndexChanged.connect(self._on_manufacturer_changed)
         _refresh_combo_search(self._manufacturer_combo)
@@ -266,30 +281,35 @@ class MainWindow(QMainWindow):
         self._model_id_spin = QSpinBox()
         self._model_id_spin.setRange(0, 999_999)
         self._model_id_spin.valueChanged.connect(self._on_field_changed)
-        layout.addWidget(QLabel(_("Manufacturer")))
+        self._manufacturer_label = QLabel(_("Manufacturer"))
+        self._model_name_label = QLabel(_("Model name"))
+        self._model_id_label = QLabel(_("Model ID"))
+        layout.addWidget(self._manufacturer_label)
         layout.addWidget(self._manufacturer_combo)
-        layout.addWidget(QLabel(_("Model name")))
+        layout.addWidget(self._model_name_label)
         layout.addWidget(self._model_combo)
-        layout.addWidget(QLabel(_("Model ID")))
+        layout.addWidget(self._model_id_label)
         layout.addWidget(self._model_id_spin)
-        return group
+        return self._model_group
 
     def _build_connection_group(self) -> QGroupBox:
-        group = QGroupBox(_("Connection"))
-        outer = QVBoxLayout(group)
+        self._connection_group = QGroupBox(_("Connection"))
+        outer = QVBoxLayout(self._connection_group)
 
         row = QHBoxLayout()
-        row.addWidget(QLabel(_("Port")))
+        self._port_label = QLabel(_("Port"))
+        row.addWidget(self._port_label)
         self._port_combo = QComboBox()
         self._port_combo.setEditable(True)
         self._port_combo.currentTextChanged.connect(self._on_field_changed)
-        refresh_button = QToolButton()
-        refresh_button.setText("⟳")
-        refresh_button.setToolTip(_("Refresh ports"))
-        refresh_button.clicked.connect(self._refresh_ports)
+        self._refresh_button = QToolButton()
+        self._refresh_button.setText("⟳")
+        self._refresh_button.setToolTip(_("Refresh ports"))
+        self._refresh_button.clicked.connect(self._refresh_ports)
         row.addWidget(self._port_combo, stretch=2)
-        row.addWidget(refresh_button)
-        row.addWidget(QLabel(_("Speed")))
+        row.addWidget(self._refresh_button)
+        self._speed_label = QLabel(_("Speed"))
+        row.addWidget(self._speed_label)
         self._baud_combo = QComboBox()
         self._baud_combo.setEditable(True)
         self._baud_combo.addItems(BAUD_RATES)
@@ -331,21 +351,25 @@ class MainWindow(QMainWindow):
         self._handshake_combo = QComboBox()
         self._handshake_combo.addItems(_handshake_options())
         self._handshake_combo.currentTextChanged.connect(self._on_field_changed)
+        self._data_bits_label = QLabel(_("Data bits"))
+        self._stop_bits_label = QLabel(_("Stop bits"))
+        self._parity_label = QLabel(_("Parity"))
+        self._handshake_label = QLabel(_("Flow control"))
         for label, widget in (
-            (_("Data bits"), self._data_bits_combo),
-            (_("Stop bits"), self._stop_bits_combo),
-            (_("Parity"), self._parity_combo),
-            (_("Flow control"), self._handshake_combo),
+            (self._data_bits_label, self._data_bits_combo),
+            (self._stop_bits_label, self._stop_bits_combo),
+            (self._parity_label, self._parity_combo),
+            (self._handshake_label, self._handshake_combo),
         ):
-            advanced_row.addWidget(QLabel(label))
+            advanced_row.addWidget(label)
             advanced_row.addWidget(widget)
         self._advanced_widget.setVisible(False)
         outer.addWidget(self._advanced_widget)
-        return group
+        return self._connection_group
 
     def _build_network_group(self) -> QGroupBox:
-        group = QGroupBox(_("Network"))
-        layout = QHBoxLayout(group)
+        self._network_group = QGroupBox(_("Network"))
+        layout = QHBoxLayout(self._network_group)
         self._listen_address_edit = QLineEdit()
         self._listen_address_edit.editingFinished.connect(self._on_field_changed)
         self._listen_port_spin = QSpinBox()
@@ -353,33 +377,33 @@ class MainWindow(QMainWindow):
         self._listen_port_spin.valueChanged.connect(self._on_field_changed)
         layout.addWidget(self._listen_address_edit, stretch=1)
         layout.addWidget(self._listen_port_spin)
-        return group
+        return self._network_group
 
     def _build_debug_group(self) -> QGroupBox:
-        group = QGroupBox(_("Debug"))
-        layout = QHBoxLayout(group)
+        self._debug_group = QGroupBox(_("Debug"))
+        layout = QHBoxLayout(self._debug_group)
         self._debug_level_combo = QComboBox()
         self._debug_level_combo.addItems(_debug_levels())
         self._debug_level_combo.currentIndexChanged.connect(self._on_field_changed)
         self._log_file_edit = QLineEdit()
         self._log_file_edit.setPlaceholderText(_("Log file path (optional)"))
         self._log_file_edit.editingFinished.connect(self._on_field_changed)
-        browse_button = QPushButton(_("Browse…"))
-        browse_button.clicked.connect(self._browse_log_file)
+        self._browse_button = QPushButton(_("Browse…"))
+        self._browse_button.clicked.connect(self._browse_log_file)
         layout.addWidget(self._debug_level_combo)
         layout.addWidget(self._log_file_edit, stretch=1)
-        layout.addWidget(browse_button)
-        return group
+        layout.addWidget(self._browse_button)
+        return self._debug_group
 
     def _build_extra_args_group(self) -> QGroupBox:
-        group = QGroupBox(_("Extra options (advanced)"))
-        layout = QVBoxLayout(group)
+        self._extra_args_group = QGroupBox(_("Extra options (advanced)"))
+        layout = QVBoxLayout(self._extra_args_group)
         self._extra_args_edit = QLineEdit()
         self._extra_args_edit.setPlaceholderText("-c 0x94")
         self._extra_args_edit.setStyleSheet("font-family: monospace;")
         self._extra_args_edit.editingFinished.connect(self._on_field_changed)
         layout.addWidget(self._extra_args_edit)
-        return group
+        return self._extra_args_group
 
     # ------------------------------------------------------------------ #
     # Profile list management
@@ -445,6 +469,84 @@ class MainWindow(QMainWindow):
             self._autostart_checkbox.blockSignals(True)
             self._autostart_checkbox.setChecked(not checked)
             self._autostart_checkbox.blockSignals(False)
+
+    def _on_language_changed(self) -> None:
+        lang = self._language_combo.currentData()
+        if lang is None or lang == get_language():
+            return
+        set_language(lang)
+        self._retranslate_ui()
+
+    def _retranslate_ui(self) -> None:
+        """Re-apply _() to every already-built widget after set_language().
+
+        Qt doesn't auto-retranslate existing widgets — each one needs its
+        text set again explicitly (the standard Qt Designer retranslateUi()
+        pattern). Combo option lists (debug level, data bits/parity/
+        handshake) are cleared and rebuilt with the newly translated
+        labels; _populate_form() below then re-derives the correct
+        selection from the profile's actual stored values, so it isn't
+        lost when e.g. "(Not set)"/"(未指定)" changes text.
+        """
+        self._add_rig_button.setText(_("+ Rig"))
+        self._add_rotator_button.setText(_("+ Rotator"))
+        self._remove_button.setText(_("Remove"))
+        self._autostart_checkbox.setText(_("Start at login"))
+
+        self._profile_autostart_checkbox.setText(_("Auto-start"))
+        self._profile_autostart_checkbox.setToolTip(
+            _("Start this profile automatically when the app launches")
+        )
+        self._command_label.setText(_("Command"))
+        self._start_button.setText(_("Start"))
+        self._stop_button.setText(_("Stop"))
+        self._restart_button.setText(_("Restart"))
+        self._log_label.setText(_("Log"))
+
+        self._model_group.setTitle(_("Model"))
+        self._manufacturer_label.setText(_("Manufacturer"))
+        self._model_name_label.setText(_("Model name"))
+        self._model_id_label.setText(_("Model ID"))
+
+        self._connection_group.setTitle(_("Connection"))
+        self._port_label.setText(_("Port"))
+        self._refresh_button.setToolTip(_("Refresh ports"))
+        self._speed_label.setText(_("Speed"))
+        self._test_connection_button.setText(_("Test connection"))
+        self._test_connection_button.setToolTip(
+            _("Query once via rigctl/rotctl to check the port, speed, and model settings")
+        )
+        self._advanced_toggle.setText(_("Advanced (data bits, parity, flow control)"))
+        self._data_bits_label.setText(_("Data bits"))
+        self._stop_bits_label.setText(_("Stop bits"))
+        self._parity_label.setText(_("Parity"))
+        self._handshake_label.setText(_("Flow control"))
+
+        self._network_group.setTitle(_("Network"))
+
+        self._debug_group.setTitle(_("Debug"))
+        self._log_file_edit.setPlaceholderText(_("Log file path (optional)"))
+        self._browse_button.setText(_("Browse…"))
+
+        self._extra_args_group.setTitle(_("Extra options (advanced)"))
+
+        for combo, options in (
+            (self._debug_level_combo, _debug_levels()),
+            (self._data_bits_combo, _data_bits_options()),
+            (self._stop_bits_combo, _stop_bits_options()),
+            (self._parity_combo, _parity_options()),
+            (self._handshake_combo, _handshake_options()),
+        ):
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems(options)
+            combo.blockSignals(False)
+
+        profile = self._selected_profile()
+        if profile is not None:
+            self._populate_form(profile)
+        else:
+            self._update_status_and_buttons()
 
     def start_autostart_profiles(self) -> None:
         """Start every profile flagged auto_start. Called once at app launch."""
