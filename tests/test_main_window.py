@@ -46,6 +46,7 @@ def _make_window(  # type: ignore[no-untyped-def]
     autostart_backend=None,
     executable_resolver=_fake_resolver,
     test_executable_resolver=_fake_test_resolver,
+    usb_ports_resolver=list,
 ) -> MainWindow:
     store = ProfileStore(path=tmp_path / "profiles.json")
     kwargs = {} if autostart_backend is None else {"autostart_backend": autostart_backend}
@@ -53,6 +54,7 @@ def _make_window(  # type: ignore[no-untyped-def]
         store=store,
         executable_resolver=executable_resolver,
         test_executable_resolver=test_executable_resolver,
+        usb_ports_resolver=usb_ports_resolver,
         **kwargs,
     )
     qtbot.addWidget(window)
@@ -291,3 +293,71 @@ def test_listen_port_tooltip_differs_by_kind(tmp_path, qtbot) -> None:  # type: 
     rotator_tooltip = window._listen_port_spin.toolTip()
     assert "4533" in rotator_tooltip
     assert rotator_tooltip != rig_tooltip
+
+
+class FakePortInfo:
+    def __init__(self, device: str, vid: int | None = None, pid: int | None = None) -> None:
+        self.device = device
+        self.vid = vid
+        self.pid = pid
+        self.serial_number = None
+
+
+def test_usb_hotplug_checkbox_captures_identity_of_selected_port(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    ports = [FakePortInfo(device="/dev/ttyUSB0", vid=0x0403, pid=0x6001)]
+    window = _make_window(tmp_path, qtbot, usb_ports_resolver=lambda: ports)
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    window._port_combo.setCurrentText("/dev/ttyUSB0")
+    window._on_field_changed()
+
+    window._usb_hotplug_checkbox.setChecked(True)
+
+    assert profile.usb_hotplug is True
+    assert profile.usb_vid == 0x0403
+    assert profile.usb_pid == 0x6001
+    assert "identified" in window._usb_hotplug_status_label.text()
+
+
+def test_usb_hotplug_checkbox_stays_unidentified_when_device_not_present(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot, usb_ports_resolver=list)
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    window._port_combo.setCurrentText("/dev/ttyUSB0")
+    window._on_field_changed()
+
+    window._usb_hotplug_checkbox.setChecked(True)
+
+    assert profile.usb_hotplug is True
+    assert profile.usb_vid is None
+    assert "no USB device identified" in window._usb_hotplug_status_label.text()
+
+
+def test_usb_hotplug_poll_starts_and_stops_profile_on_plug_unplug(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    ports: list[FakePortInfo] = []
+
+    def resolver(kind: ProfileKind) -> str:
+        return str(FAKE_CTLD)
+
+    window = _make_window(
+        tmp_path, qtbot, executable_resolver=resolver, usb_ports_resolver=lambda: ports
+    )
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    profile.usb_hotplug = True
+    profile.usb_vid = 0x0403
+    profile.usb_pid = 0x6001
+    window._refresh_usb_tracking()
+
+    try:
+        ports.append(FakePortInfo(device="/dev/ttyUSB0", vid=0x0403, pid=0x6001))
+        window._poll_usb_hotplug()
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+        assert profile.port == "/dev/ttyUSB0"
+
+        ports.clear()
+        window._poll_usb_hotplug()
+        qtbot.waitUntil(lambda: not window.is_running(profile.id), timeout=1000)
+    finally:
+        window.stop_all()

@@ -58,6 +58,16 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 - **重要な設計上の注意**: `ui/main_window.py`の`DEBUG_LEVELS`等の選択肢リストは、あえてモジュール直下の定数ではなく`_debug_levels()`等の関数にしている。`_()`はモジュールインポート時ではなく毎回呼び出し時に現在の翻訳を参照するが、モジュールレベルの定数として一度だけ評価してしまうと、`main()`内で`set_language()`を呼ぶより前(モジュールimport時点)に固定されてしまうため。
 - PyInstallerで`locale/`ディレクトリをバンドル(`assets/`と同様)。実機(Linux)でバンドル済み`.mo`が正しく`_MEIPASS/locale/`から読み込まれ、日本語・英語両方で正しく表示されることを確認済み。
 
+## USB自動起動/停止(ホットプラグ検知)
+
+- `core/usb_watch.py` — Linuxのudev+systemd(`ACTION=="add"`でサービス起動、`"remove"`で停止)と同等の体験を、macOS/Windowsを含む3プラットフォーム共通のコードで実現するための実装。
+  - **udev相当をmacOS/Windowsに個別移植する方針は不採用**: macOSのIOKit、WindowsのWM_DEVICECHANGE/WMIはudevとは全く別のAPIで、しかもOS起動時から独立して動かす(=アプリ未起動でも反応する)にはヘルパープロセス/デーモンの追加実装とパッケージングが必要になり、3通りのOS別実装を保守するコストに見合わない。ユーザー(JF9SOM)自身「アプリが起動していないときまで自動起動するようにしたいわけではない」と明言したため、**ctld-launcher自体が起動している間だけ動く軽量なポーリング方式**を採用。
+  - `pyserial`の`list_ports.comports()`を(プロファイルごとにUSBホットプラグが有効なものが1つ以上あるときだけ)2秒間隔でポーリングし、前回ポーリング時との差分からデバイスの着脱を検出する(`UsbHotplugTracker.poll()`)。
+  - デバイスの識別は**ポートパスではなくVID:PID(+可能ならシリアル番号)** で行う。`/dev/ttyUSB0`やmacOSの`/dev/tty.usbserial-*`、WindowsのCOM番号はいずれも抜き差しのたびに変わりうるため、パス一致では同一デバイスの再認識に失敗する。
+  - `Profile.usb_hotplug`/`usb_vid`/`usb_pid`/`usb_serial_number`で永続化。GUI側では「このUSBデバイス接続時に自動起動」チェックボックスをオンにした時点で、その時ポート欄に選択されているポートのVID:PID(pyserial経由)を自動的に記憶する(ユーザーがVID:PIDを手入力する必要はない)。デバイスが接続されていない状態でオンにした場合は「(USBデバイス未識別)」ステータスを表示し、実害がないことを明示する(何もトラッキングされない=無害な状態のまま)。
+  - デバイス接続を検知すると、その時点の実際のポートパスで`profile.port`を更新してから起動する(ポート名が前回と変わっていても正しく追従する)。
+  - 既存の`Profile.auto_start`(アプリ起動時に自動起動)とは独立した設計。両方オンにしても害はない(`_start_profile()`/`_stop_profile()`はどちらも「既に希望の状態ならno-op」なので二重起動しない)。
+
 ## CI
 
 - `.github/workflows/ci.yml` — push/PR(mainブランチ)ごとにruff(lint+format check)/mypy/pytestを実行。Hamlibのインストールは不要(テストは`_fake_ctld.py`/`_fake_hamlib_list.py`等のフェイクスクリプトで完結し、実バインディングに依存しない)。

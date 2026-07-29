@@ -5,7 +5,7 @@ import shlex
 import subprocess
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -29,6 +29,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from serial.tools import list_ports
+from serial.tools.list_ports_common import ListPortInfo
 
 from ctld_launcher.core import autostart as autostart_module
 from ctld_launcher.core.autostart import AutostartBackend, AutostartError
@@ -41,7 +43,10 @@ from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufac
 from ctld_launcher.core.process_manager import CtldProcess, build_command, build_test_command
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
+from ctld_launcher.core.usb_watch import UsbHotplugTracker, UsbIdentity, identity_for_port
 from ctld_launcher.i18n import _, get_language, set_language
+
+USB_POLL_INTERVAL_MS = 2000
 
 BAUD_RATES = ["1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"]
 
@@ -140,6 +145,7 @@ class MainWindow(QMainWindow):
         executable_resolver: Callable[[ProfileKind], str] = find_executable,
         test_executable_resolver: Callable[[ProfileKind], str] = find_test_executable,
         autostart_backend: AutostartBackend = autostart_module,
+        usb_ports_resolver: Callable[[], list[ListPortInfo]] = list_ports.comports,
     ) -> None:
         super().__init__()
         self.setWindowTitle("ctld-launcher")
@@ -151,6 +157,8 @@ class MainWindow(QMainWindow):
         self._executable_resolver = executable_resolver
         self._test_executable_resolver = test_executable_resolver
         self._autostart = autostart_backend
+        self._usb_ports_resolver = usb_ports_resolver
+        self._usb_tracker = UsbHotplugTracker()
         self._current_id: str | None = None
         self._updating_form = False
 
@@ -162,6 +170,10 @@ class MainWindow(QMainWindow):
             self._add_sidebar_item(profile)
         if self._profiles:
             self._list.setCurrentRow(0)
+
+        self._usb_timer = QTimer(self)
+        self._usb_timer.timeout.connect(self._poll_usb_hotplug)
+        self._refresh_usb_tracking()
 
     # ------------------------------------------------------------------ #
     # UI construction
@@ -365,6 +377,22 @@ class MainWindow(QMainWindow):
         row.addWidget(self._baud_combo, stretch=1)
         outer.addLayout(row)
 
+        usb_row = QHBoxLayout()
+        self._usb_hotplug_checkbox = QCheckBox(_("Auto-start when this USB device is connected"))
+        self._usb_hotplug_checkbox.setToolTip(
+            _(
+                "Plug in the device and select its port above first, then turn this "
+                "on: ctld-launcher will remember that USB device and automatically "
+                "start this profile whenever it's plugged in, and stop it when "
+                "unplugged. Only works while ctld-launcher itself is running."
+            )
+        )
+        self._usb_hotplug_checkbox.toggled.connect(self._on_field_changed)
+        usb_row.addWidget(self._usb_hotplug_checkbox)
+        self._usb_hotplug_status_label = QLabel()
+        usb_row.addWidget(self._usb_hotplug_status_label, stretch=1)
+        outer.addLayout(usb_row)
+
         self._civ_widget = QWidget()
         civ_row = QHBoxLayout(self._civ_widget)
         civ_row.setContentsMargins(0, 0, 0, 0)
@@ -552,6 +580,7 @@ class MainWindow(QMainWindow):
         self._processes.pop(profile.id, None)
         self._profiles = [p for p in self._profiles if p.id != profile.id]
         self._store.save(self._profiles)
+        self._refresh_usb_tracking()
         row = self._list.currentRow()
         self._list.takeItem(row)
 
@@ -654,6 +683,15 @@ class MainWindow(QMainWindow):
         self._speed_label.setText(_("Speed"))
         self._baud_combo.setToolTip(
             _("Must match the serial speed set on the radio itself, or the connection will fail.")
+        )
+        self._usb_hotplug_checkbox.setText(_("Auto-start when this USB device is connected"))
+        self._usb_hotplug_checkbox.setToolTip(
+            _(
+                "Plug in the device and select its port above first, then turn this "
+                "on: ctld-launcher will remember that USB device and automatically "
+                "start this profile whenever it's plugged in, and stop it when "
+                "unplugged. Only works while ctld-launcher itself is running."
+            )
         )
         self._civ_label.setText(_("ICOM CIV address"))
         self._civ_address_edit.setToolTip(
@@ -761,6 +799,7 @@ class MainWindow(QMainWindow):
             self._model_id_spin,
             self._port_combo,
             self._baud_combo,
+            self._usb_hotplug_checkbox,
             self._civ_address_edit,
             self._test_connection_button,
             self._listen_address_edit,
@@ -794,6 +833,9 @@ class MainWindow(QMainWindow):
             baud_text = str(profile.serial_speed) if profile.serial_speed else ""
             self._baud_combo.setCurrentText(baud_text)
 
+            self._usb_hotplug_checkbox.setChecked(profile.usb_hotplug)
+            self._update_usb_hotplug_status(profile)
+
             self._civ_widget.setVisible(profile.kind == ProfileKind.RIG)
             self._civ_address_edit.setText(profile.civ_address or "")
 
@@ -824,6 +866,12 @@ class MainWindow(QMainWindow):
             "Default is 4533 for rotators. Match your rotator control software's "
             "TCP port to this number."
         )
+
+    def _update_usb_hotplug_status(self, profile: Profile) -> None:
+        if profile.usb_vid is not None and profile.usb_pid is not None:
+            self._usb_hotplug_status_label.setText(_("(USB device identified)"))
+        else:
+            self._usb_hotplug_status_label.setText(_("(no USB device identified yet)"))
 
     def _models_for_kind(self, kind: ProfileKind) -> dict[str, list[tuple[int, str]]]:
         try:
@@ -949,6 +997,15 @@ class MainWindow(QMainWindow):
         profile.port = self._port_combo.currentText()
         baud_text = self._baud_combo.currentText().strip()
         profile.serial_speed = int(baud_text) if baud_text else None
+        profile.usb_hotplug = self._usb_hotplug_checkbox.isChecked()
+        if profile.usb_hotplug:
+            identity = identity_for_port(profile.port, self._usb_ports_resolver())
+            if identity is not None:
+                profile.usb_vid = identity.vid
+                profile.usb_pid = identity.pid
+                profile.usb_serial_number = identity.serial_number
+        self._update_usb_hotplug_status(profile)
+        self._refresh_usb_tracking()
         profile.civ_address = self._civ_address_edit.text() or None
         profile.data_bits = _int_or_none(self._data_bits_combo)
         profile.stop_bits = _int_or_none(self._stop_bits_combo)
@@ -1039,6 +1096,43 @@ class MainWindow(QMainWindow):
 
     def stop_all(self) -> None:
         for profile_id in list(self._processes):
+            self._stop_profile(profile_id)
+
+    # ------------------------------------------------------------------ #
+    # USB hotplug (see core/usb_watch.py for why this is app-level polling
+    # rather than an OS-level service like Linux's udev+systemd)
+    # ------------------------------------------------------------------ #
+    def _refresh_usb_tracking(self) -> None:
+        tracked = {
+            profile.id: UsbIdentity(
+                vid=profile.usb_vid,
+                pid=profile.usb_pid,
+                serial_number=profile.usb_serial_number,
+            )
+            for profile in self._profiles
+            if profile.usb_hotplug and profile.usb_vid is not None and profile.usb_pid is not None
+        }
+        self._usb_tracker.set_tracked(tracked)
+        if tracked:
+            if not self._usb_timer.isActive():
+                self._usb_timer.start(USB_POLL_INTERVAL_MS)
+        else:
+            self._usb_timer.stop()
+
+    def _poll_usb_hotplug(self) -> None:
+        ports = self._usb_ports_resolver()
+        connected, disconnected = self._usb_tracker.poll(ports)
+        for profile_id, port in connected.items():
+            profile = self._find_profile(profile_id)
+            if profile is None:
+                continue
+            if profile.port != port:
+                profile.port = port
+                self._store.save(self._profiles)
+                if profile_id == self._current_id:
+                    self._populate_form(profile)
+            self._start_profile(profile)
+        for profile_id in disconnected:
             self._stop_profile(profile_id)
 
     def _emit_log_line(self, profile_id: str, line: str) -> None:

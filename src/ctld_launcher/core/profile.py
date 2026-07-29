@@ -41,6 +41,10 @@ class Profile:
     log_file: str | None = None
     extra_args: list[str] = field(default_factory=list)
     auto_start: bool = False
+    usb_hotplug: bool = False
+    usb_vid: int | None = None
+    usb_pid: int | None = None
+    usb_serial_number: str | None = None
 
     @classmethod
     def new_rig(
