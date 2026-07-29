@@ -262,6 +262,16 @@ def test_civ_field_persists_to_profile(tmp_path, qtbot) -> None:  # type: ignore
     assert "-c 0x94" in window._command_preview.text()
 
 
+def test_quit_button_calls_qapplication_quit(tmp_path, qtbot, qapp) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    calls = []
+    qapp.quit = lambda: calls.append(True)  # type: ignore[method-assign]
+
+    window._on_quit_clicked()
+
+    assert len(calls) == 1
+
+
 def test_listen_port_tooltip_differs_by_kind(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
     window = _make_window(tmp_path, qtbot)
     window._add_profile(ProfileKind.RIG)

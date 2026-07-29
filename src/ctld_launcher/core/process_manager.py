@@ -36,6 +36,15 @@ def _serial_conf_args(profile: Profile) -> list[str]:
     return ["-C", ",".join(serial_conf)] if serial_conf else []
 
 
+def _normalize_civ_address(value: str) -> str:
+    """Accept the address as shown on the radio (e.g. "A2") as well as a
+    "0x"-prefixed form; rigctld/rotctld's -c flag requires the 0x prefix to
+    parse it as hexadecimal.
+    """
+    value = value.strip()
+    return value if value.lower().startswith("0x") else f"0x{value}"
+
+
 def build_command(executable: str, profile: Profile) -> list[str]:
     """Translate a Profile into rigctld/rotctld CLI arguments.
 
@@ -48,7 +57,7 @@ def build_command(executable: str, profile: Profile) -> list[str]:
     if profile.serial_speed:
         command += ["-s", str(profile.serial_speed)]
     if profile.civ_address:
-        command += ["-c", profile.civ_address]
+        command += ["-c", _normalize_civ_address(profile.civ_address)]
     command += _serial_conf_args(profile)
     command += ["-t", str(profile.listen_port)]
     if profile.listen_address:
@@ -73,7 +82,7 @@ def build_test_command(executable: str, profile: Profile) -> list[str]:
     if profile.serial_speed:
         command += ["-s", str(profile.serial_speed)]
     if profile.civ_address:
-        command += ["-c", profile.civ_address]
+        command += ["-c", _normalize_civ_address(profile.civ_address)]
     command += _serial_conf_args(profile)
     command.append("f" if profile.kind == ProfileKind.RIG else "p")
     return command

@@ -127,6 +127,18 @@ def test_build_command_omits_civ_flag_when_unset() -> None:
     assert "-c" not in build_command("rigctld", profile)
 
 
+def test_build_command_civ_address_without_0x_prefix_is_normalized() -> None:
+    profile = Profile(name="IC-9700", kind=ProfileKind.RIG, model_id=3081, civ_address="A2")
+    command = build_command("rigctld", profile)
+    assert command[command.index("-c") + 1] == "0xA2"
+
+
+def test_build_test_command_civ_address_without_0x_prefix_is_normalized() -> None:
+    profile = Profile(name="IC-9700", kind=ProfileKind.RIG, model_id=3081, civ_address="a2")
+    command = build_test_command("rigctl", profile)
+    assert command[command.index("-c") + 1] == "0xa2"
+
+
 def test_build_test_command_rotator_queries_get_pos() -> None:
     profile = Profile(name="SPID", kind=ProfileKind.ROTATOR, model_id=401, port="/dev/ttyUSB1")
     assert build_test_command("rotctl", profile) == [

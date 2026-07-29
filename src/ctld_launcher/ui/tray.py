@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QCursor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ctld_launcher.i18n import _
@@ -64,6 +64,16 @@ class TrayIcon(QSystemTrayIcon):
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             self._window.show_and_raise()
+        elif reason == QSystemTrayIcon.ActivationReason.Context:
+            # Some Linux desktop environments/tray hosts don't reliably show
+            # the menu set via setContextMenu() on their own (e.g. it relies
+            # on DBusMenu support the host may lack), leaving right-click
+            # doing nothing. Popping it up explicitly here is a harmless
+            # no-op where the native path already works, and a fallback
+            # where it doesn't.
+            menu = self.contextMenu()
+            if menu is not None:
+                menu.popup(QCursor.pos())
 
     def _refresh_icon(self) -> None:
         any_running = any(self._window.is_running(p.id) for p in self._window.profiles)

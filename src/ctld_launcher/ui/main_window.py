@@ -8,6 +8,7 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QCompleter,
@@ -219,6 +220,16 @@ class MainWindow(QMainWindow):
         self._autostart_checkbox.toggled.connect(self._on_autostart_toggled)
         layout.addWidget(self._autostart_checkbox)
 
+        self._quit_button = QPushButton(_("Quit ctld-launcher"))
+        self._quit_button.setToolTip(
+            _(
+                "Stops all running rigctld/rotctld processes and closes the app "
+                "completely, including the tray icon."
+            )
+        )
+        self._quit_button.clicked.connect(self._on_quit_clicked)
+        layout.addWidget(self._quit_button)
+
         container.setMaximumWidth(220)
         return container
 
@@ -228,6 +239,7 @@ class MainWindow(QMainWindow):
 
         header = QHBoxLayout()
         self._name_edit = QLineEdit()
+        self._name_edit.setToolTip(_("Enter any name you like for this profile."))
         self._name_edit.editingFinished.connect(self._on_name_changed)
         header.addWidget(self._name_edit)
         self._profile_autostart_checkbox = QCheckBox(_("Auto-start"))
@@ -349,11 +361,11 @@ class MainWindow(QMainWindow):
         self._civ_label = QLabel(_("ICOM CIV address"))
         civ_row.addWidget(self._civ_label)
         self._civ_address_edit = QLineEdit()
-        self._civ_address_edit.setPlaceholderText("0x94")
+        self._civ_address_edit.setPlaceholderText("A2")
         self._civ_address_edit.setToolTip(
             _(
-                "For ICOM rigs, enter the same CIV address set on the radio. "
-                "Leave blank for other manufacturers."
+                "For ICOM rigs, enter the CIV address exactly as shown on the radio "
+                "(e.g. A2). Leave blank for other manufacturers."
             )
         )
         self._civ_address_edit.editingFinished.connect(self._on_field_changed)
@@ -545,6 +557,11 @@ class MainWindow(QMainWindow):
             self._autostart_checkbox.setChecked(not checked)
             self._autostart_checkbox.blockSignals(False)
 
+    def _on_quit_clicked(self) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
+
     def _on_language_changed(self) -> None:
         lang = self._language_combo.currentData()
         if lang is None or lang == get_language():
@@ -573,7 +590,15 @@ class MainWindow(QMainWindow):
                 'profiles automatically, enable each profile\'s own "Auto-start" too.'
             )
         )
+        self._quit_button.setText(_("Quit ctld-launcher"))
+        self._quit_button.setToolTip(
+            _(
+                "Stops all running rigctld/rotctld processes and closes the app "
+                "completely, including the tray icon."
+            )
+        )
 
+        self._name_edit.setToolTip(_("Enter any name you like for this profile."))
         self._profile_autostart_checkbox.setText(_("Auto-start"))
         self._profile_autostart_checkbox.setToolTip(
             _("Start this profile automatically when the app launches")
@@ -616,8 +641,8 @@ class MainWindow(QMainWindow):
         self._civ_label.setText(_("ICOM CIV address"))
         self._civ_address_edit.setToolTip(
             _(
-                "For ICOM rigs, enter the same CIV address set on the radio. "
-                "Leave blank for other manufacturers."
+                "For ICOM rigs, enter the CIV address exactly as shown on the radio "
+                "(e.g. A2). Leave blank for other manufacturers."
             )
         )
         self._test_connection_button.setText(_("Test connection"))

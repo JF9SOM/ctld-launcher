@@ -37,8 +37,17 @@ msgstr "+ ローテーター"
 msgid "Remove"
 msgstr "削除"
 
+msgid "Enter any name you like for this profile."
+msgstr "任意のプロファイル名を入力して下さい。"
+
 msgid "Start at login"
 msgstr "ログイン時に自動起動"
+
+msgid "Quit ctld-launcher"
+msgstr "ctld-launcherを終了"
+
+msgid "Stops all running rigctld/rotctld processes and closes the app completely, including the tray icon."
+msgstr "稼働中のrigctld/rotctldをすべて停止し、トレイアイコンを含めてアプリを完全に終了します。"
 
 msgid "Auto-start"
 msgstr "自動起動"
@@ -184,8 +193,8 @@ msgstr "リグの場合、デフォルトは4532です。リグ制御ソフト�
 msgid "Default is 4533 for rotators. Match your rotator control software's TCP port to this number."
 msgstr "ローテーターの場合、デフォルトは4533です。ローテーター制御ソフト側のTCPポートもこの数字に合わせて下さい。"
 
-msgid "For ICOM rigs, enter the same CIV address set on the radio. Leave blank for other manufacturers."
-msgstr "ICOMリグの場合、無線機側のCIVアドレスと同じアドレスを入力して下さい。他社リグの場合は入力不要です。"
+msgid "For ICOM rigs, enter the CIV address exactly as shown on the radio (e.g. A2). Leave blank for other manufacturers."
+msgstr "ICOMリグの場合、無線機側に表示されているCIVアドレスをそのまま入力して下さい(例: A2)。他社リグの場合は入力不要です。"
 
 msgid "Hamlib's numeric model ID. Filled in automatically when you pick a manufacturer/model above; you can also type it directly for a model not in the list."
 msgstr "Hamlibの機種番号です。メーカー・機種を選ぶと自動入力されます。リストにない機種は直接入力できます。"
