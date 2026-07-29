@@ -31,7 +31,7 @@ Download and run `ctld-launcher-Setup.exe`, then follow the installer prompts. I
 
 ### macOS
 
-Download `ctld-launcher.dmg`, open it, and copy `ctld-launcher.app` to your Applications folder (or wherever you like). On first launch, if you see "cannot be opened because the developer cannot be verified," **right-click (or Control-click) the app in Finder → Open**, then click "Open" in the dialog that appears (this is because the build is only ad-hoc signed, not notarized by Apple — after the first launch, double-clicking works normally).
+Download `ctld-launcher.dmg`, open it, and copy `ctld-launcher.app` to your Applications folder (or wherever you like). On first launch, macOS will warn that it can't verify the developer and offer to move the app to the Trash — **close that dialog without deleting it**. Then open the Apple menu → System Settings → Privacy & Security, scroll down to the message saying `"ctld-launcher" was blocked to protect your Mac`, click **Open Anyway**, and confirm "Open" in the dialog that follows. This is because the build is only ad-hoc signed, not notarized by Apple — after the first launch, it opens normally.
 
 ## Configuration
 
