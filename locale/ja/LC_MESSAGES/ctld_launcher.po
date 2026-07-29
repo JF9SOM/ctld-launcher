@@ -85,6 +85,9 @@ msgstr "ポートを再検出"
 msgid "Speed"
 msgstr "速度"
 
+msgid "Must match the serial speed set on the radio itself, or the connection will fail."
+msgstr "無線機側で設定されているシリアルスピードに必ず合わせて下さい。"
+
 msgid "Test connection"
 msgstr "接続テスト"
 

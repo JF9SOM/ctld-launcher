@@ -313,6 +313,9 @@ class MainWindow(QMainWindow):
         self._baud_combo = QComboBox()
         self._baud_combo.setEditable(True)
         self._baud_combo.addItems(BAUD_RATES)
+        self._baud_combo.setToolTip(
+            _("Must match the serial speed set on the radio itself, or the connection will fail.")
+        )
         self._baud_combo.currentTextChanged.connect(self._on_field_changed)
         row.addWidget(self._baud_combo, stretch=1)
         outer.addLayout(row)
@@ -512,6 +515,9 @@ class MainWindow(QMainWindow):
         self._port_label.setText(_("Port"))
         self._refresh_button.setToolTip(_("Refresh ports"))
         self._speed_label.setText(_("Speed"))
+        self._baud_combo.setToolTip(
+            _("Must match the serial speed set on the radio itself, or the connection will fail.")
+        )
         self._test_connection_button.setText(_("Test connection"))
         self._test_connection_button.setToolTip(
             _("Query once via rigctl/rotctl to check the port, speed, and model settings")
