@@ -1,22 +1,26 @@
 # ctld-launcher
 
-Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御デーモン)を、コマンドラインではなくGUIから設定・起動できるランチャーアプリです。
+🌐 [日本語](README.ja.md) | English
 
-リグ/ローテーターのメーカー・機種、シリアルポート、通信速度などをプルダウンから選ぶだけで`rigctld`/`rotctld`を起動できます。Hamlib本体(`rigctld`/`rotctld`/`rigctl`/`rotctl`、バージョン4.7.1)を同梱しているため、別途Hamlibをインストールする必要はありません。
+A GUI launcher for Hamlib's `rigctld` (rig control daemon) and `rotctld` (rotator control daemon) — configure and start them without touching the command line.
 
-Linux/Windows/macOSに対応しています。
+Pick your rig/rotator's manufacturer and model, serial port, and baud rate from dropdown menus, and launch `rigctld`/`rotctld` with one click. Hamlib itself (`rigctld`/`rotctld`/`rigctl`/`rotctl`, version 4.7.1) is bundled, so there's no need to install Hamlib separately.
 
-![設定画面](docs/screenshot-settings.png)
+Available for Linux, Windows, and macOS.
 
-開発の背景・アーキテクチャなど技術的な詳細は[CLAUDE.md](CLAUDE.md)を参照してください。
+![Settings screen](docs/screenshot-settings.png)
 
-## インストール方法
+*(Screenshot shows the Japanese UI — English is also available via the language selector in the top-left corner.)*
 
-[Releases](https://github.com/JF9SOM/ctld-launcher/releases)ページから、お使いのOS用のファイルをダウンロードしてください。
+For background and technical/architecture details, see [CLAUDE.md](CLAUDE.md) (Japanese).
+
+## Installation
+
+Download the file for your OS from the [Releases](https://github.com/JF9SOM/ctld-launcher/releases) page.
 
 ### Linux
 
-`ctld-launcher-x86_64.AppImage`をダウンロードし、実行権限を付けて起動します。
+Download `ctld-launcher-x86_64.AppImage`, make it executable, and run it.
 
 ```bash
 chmod +x ctld-launcher-x86_64.AppImage
@@ -25,42 +29,42 @@ chmod +x ctld-launcher-x86_64.AppImage
 
 ### Windows
 
-`ctld-launcher-Setup.exe`をダウンロードして実行し、インストーラーの案内に従ってください。「WindowsによってPCが保護されました」という警告が出た場合は、「詳細情報」→「実行」を選んでください(未署名のためこの警告が出ますが、内容は本リポジトリのビルドそのものです)。
+Download and run `ctld-launcher-Setup.exe`, then follow the installer prompts. If you see a "Windows protected your PC" warning, click "More info" → "Run anyway" (this warning appears because the build isn't code-signed, not because of anything unusual about it).
 
 ### macOS
 
-`ctld-launcher.dmg`をダウンロードして開き、中の`ctld-launcher.app`をApplicationsフォルダなどにコピーしてください。初回起動時に「開発元が未確認のため開けません」と表示される場合は、Finderでアプリを**右クリック(control+クリック)→「開く」**を選び、表示されるダイアログで「開く」を選んでください(Apple公証を行っていないための表示で、2回目以降は通常通りダブルクリックで起動できます)。
+Download `ctld-launcher.dmg`, open it, and copy `ctld-launcher.app` to your Applications folder (or wherever you like). On first launch, if you see "cannot be opened because the developer cannot be verified," **right-click (or Control-click) the app in Finder → Open**, then click "Open" in the dialog that appears (this is because the build is only ad-hoc signed, not notarized by Apple — after the first launch, double-clicking works normally).
 
-## 設定方法
+## Configuration
 
-起動すると、左側にプロファイル一覧、右側に設定フォームが表示されます。
+When the app starts, you'll see a list of profiles on the left and a settings form on the right.
 
-1. 左上の「+リグ」または「+ローテーター」ボタンで新しいプロファイルを追加します。
-2. 右側フォーム最上部の名前欄で、プロファイルに分かりやすい名前を付けます(例: 「IC-9700」)。
-3. 「モデル」欄で、リグ/ローテーターのメーカーと機種を選びます。メーカー・機種のプルダウンは入力して絞り込み検索ができます。リストにない機種の場合は「モデルID」欄にHamlibの機種番号を直接入力することもできます。
-4. 「接続」欄で、リグ/ローテーターを繋いだシリアルポートと、無線機側で設定されている通信速度を選びます。後からケーブルを挿した場合は、ポート欄横の再検出ボタンで一覧を更新できます。
-   - ICOMリグの場合のみ「ICOM CIVアドレス」欄が表示されます。無線機側の設定画面に表示されているアドレスをそのまま入力してください(例: `A2`。`0x`を付ける必要はありません)。ICOM以外のメーカーでは空欄のままで構いません。
-   - データビット・パリティ・フロー制御などの詳細設定は、通常は「(未指定)」のままで問題ありません。無線機やインターフェースの説明書に特別な指定がある場合のみ変更してください。
-5. 「ネットワーク」欄では、`rigctld`/`rotctld`が待ち受けるアドレスとポート番号を設定します。通常は127.0.0.1のままで構いません(このPC内のソフトからのみ接続可能)。他のPCからも接続させたい場合のみ0.0.0.0に変更してください。ポート番号はリグ制御ソフト側の設定とも一致させる必要があります(デフォルトはリグ4532/ローテーター4533)。
-6. 必要であれば「デバッグ」欄でログの詳細度やログファイルの保存先を指定できます。
-7. 各項目にマウスカーソルを乗せると、ツールチップで簡単な説明が表示されます。迷ったときはツールチップを確認してください。
+1. Click "+ Rig" or "+ Rotator" in the top-left to add a new profile.
+2. At the top of the form, give the profile a name you'll recognize (e.g. "IC-9700").
+3. In the "Model" section, select your rig/rotator's manufacturer and model. Both dropdowns are searchable — type to filter the list. If your model isn't listed, you can type Hamlib's numeric model ID directly into the "Model ID" field instead.
+4. In the "Connection" section, select the serial port your rig/rotator is connected to, and the baud rate configured on the radio itself. If you plug in the cable after opening the app, click the refresh button next to the port dropdown to rescan.
+   - An "ICOM CIV address" field appears only for ICOM rigs. Enter the address exactly as shown on the radio's own settings screen (e.g. `A2` — no need to add "0x"). Leave it blank for other manufacturers.
+   - The advanced settings (data bits, parity, flow control) can usually be left as "(Not set)". Only change them if your radio or interface's manual specifies a particular value.
+5. In the "Network" section, set the address and port that `rigctld`/`rotctld` will listen on. Leaving this at 127.0.0.1 (only software on this same PC can connect) is fine for most setups; change it to 0.0.0.0 only if you want other PCs on your LAN to be able to connect. The port number must also match what your rig control software is configured to use (defaults are 4532 for rigs, 4533 for rotators).
+6. If needed, use the "Debug" section to set log verbosity or a log file path.
+7. Hover over any field to see a tooltip with a short explanation — check there if you're unsure what a setting does.
 
-設定内容は自動的に保存されるので、保存ボタンを押す必要はありません。
+Settings are saved automatically; there's no separate save button.
 
-## 使い方
+## Usage
 
-- 設定が終わったら「起動」ボタンを押すと`rigctld`/`rotctld`が起動します。フォーム下部の「実行中のコマンド」欄で、実際に実行されるコマンドライン全体を事前に確認できます。
-- 起動前に「接続テスト」ボタンを押すと、`rigctl`/`rotctl`で一度だけ問い合わせを行い、ポート・速度・機種設定が正しいかを確認できます。無線機の電源が入っていない・ケーブルが未接続の場合、`rigctld`自体は起動してもリグ制御ソフトからの応答がなくなるため、起動前にこのテストで確認することをおすすめします。
-- 「停止」「再起動」ボタンで、起動中のプロセスを停止・再起動できます。「ログ」欄には`rigctld`/`rotctld`の標準出力が表示されます。
-- 「自動起動」チェックボックス(プロファイルごと)をオンにすると、アプリ起動時にそのプロファイルが自動的に起動します。左サイドバーの「ログイン時に自動起動」をオンにすると、PCログイン時にこのアプリ自体がトレイに常駐起動します。
-- ウィンドウを閉じてもアプリは終了せず、システムトレイに常駐します。トレイアイコンを左クリックすると設定画面が再表示され、右クリックするとプロファイルごとのワンクリック起動/停止・設定画面を開く・終了のメニューが表示されます。アプリを完全に終了したい場合は、トレイメニューの「終了」か、設定画面左下の「ctld-launcherを終了」ボタンを使ってください。
-- 左上のコンボボックスで、表示言語を英語/日本語に切り替えられます(再起動不要)。
+- Once configured, click "Start" to launch `rigctld`/`rotctld`. The "Command" field near the bottom of the form shows the exact command line that will be run, before you start it.
+- Before starting, you can click "Test connection" to run a single one-shot query via `rigctl`/`rotctl` and confirm the port, speed, and model settings are correct. Note that if the radio is powered off or the cable isn't connected, `rigctld` itself will still start and keep running — it just won't respond to your rig control software — so it's worth testing the connection first.
+- Use "Stop" and "Restart" to stop or restart a running process. The "Log" panel shows `rigctld`/`rotctld`'s console output.
+- Turning on a profile's "Auto-start" checkbox makes that profile launch automatically whenever the app starts. Turning on "Start at login" in the left sidebar makes the app itself launch into the system tray automatically when you log in.
+- Closing the window doesn't quit the app — it stays running in the system tray. Left-click the tray icon to bring the settings window back; right-click it for a menu with per-profile start/stop, "Open settings…", and "Quit". To fully quit the app, use "Quit" from the tray menu, or the "Quit ctld-launcher" button at the bottom of the sidebar.
+- Use the combo box in the top-left to switch the display language between English and Japanese (no restart needed).
 
-## 開発
+## Development
 
 ```bash
 pip install -e ".[dev]"
 pytest
 ```
 
-詳細は[CLAUDE.md](CLAUDE.md)を参照してください。
+See [CLAUDE.md](CLAUDE.md) (Japanese) for details.
