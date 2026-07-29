@@ -53,7 +53,7 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 
 - `src/ctld_launcher/i18n.py` — Python標準`gettext`ベース。FBSAT59の`src/i18n/__init__.py`と同じ設計方針(**ソースコードは英語で書き、`.po`ファイルで日本語等へ翻訳する**)。
 - `locale/ja/LC_MESSAGES/ctld_launcher.po`/`.mo` — 日本語訳(既存のUI文言と完全一致するよう作成)。`locale/ctld_launcher.pot`が翻訳テンプレート(`pygettext3`で抽出)。
-- 起動時に`main.py`が`QLocale.system().name()`で自動判定(`ja*`→日本語、それ以外→英語)。現状は言語切り替えUIはなく自動判定のみ(v1スコープ)。
+- 起動時に`main.py`が`QLocale.system().name()`で自動判定(`ja*`→日本語、それ以外→英語)。サイドバー上部に手動切り替えコンボ(English/日本語)もあり、再起動不要でその場に全UI文言を再翻訳する(`MainWindow._retranslate_ui()`)。
 - **重要な設計上の注意**: `ui/main_window.py`の`DEBUG_LEVELS`等の選択肢リストは、あえてモジュール直下の定数ではなく`_debug_levels()`等の関数にしている。`_()`はモジュールインポート時ではなく毎回呼び出し時に現在の翻訳を参照するが、モジュールレベルの定数として一度だけ評価してしまうと、`main()`内で`set_language()`を呼ぶより前(モジュールimport時点)に固定されてしまうため。
 - PyInstallerで`locale/`ディレクトリをバンドル(`assets/`と同様)。実機(Linux)でバンドル済み`.mo`が正しく`_MEIPASS/locale/`から読み込まれ、日本語・英語両方で正しく表示されることを確認済み。
 
