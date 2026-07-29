@@ -49,6 +49,14 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
    - **Linuxはこのマシンで実機検証済み**: PyInstallerビルド→バンドル済みrigctldが`_MEIPASS/hamlib/`から検出される→自動起動プロファイルで実際にrigctldが起動しTCP応答(`145000000`)を確認、を`dist/ctld-launcher/`のPyInstaller出力とAppImage本体の両方で確認。既存の`rigctld-ftx1`等システムサービスへの影響なし。
    - 3プラットフォームとも`workflow_dispatch`でのCI実行に成功済み(Linux/Windows/macOS)。
 
+## 多言語対応(i18n)
+
+- `src/ctld_launcher/i18n.py` — Python標準`gettext`ベース。FBSAT59の`src/i18n/__init__.py`と同じ設計方針(**ソースコードは英語で書き、`.po`ファイルで日本語等へ翻訳する**)。
+- `locale/ja/LC_MESSAGES/ctld_launcher.po`/`.mo` — 日本語訳(既存のUI文言と完全一致するよう作成)。`locale/ctld_launcher.pot`が翻訳テンプレート(`pygettext3`で抽出)。
+- 起動時に`main.py`が`QLocale.system().name()`で自動判定(`ja*`→日本語、それ以外→英語)。現状は言語切り替えUIはなく自動判定のみ(v1スコープ)。
+- **重要な設計上の注意**: `ui/main_window.py`の`DEBUG_LEVELS`等の選択肢リストは、あえてモジュール直下の定数ではなく`_debug_levels()`等の関数にしている。`_()`はモジュールインポート時ではなく毎回呼び出し時に現在の翻訳を参照するが、モジュールレベルの定数として一度だけ評価してしまうと、`main()`内で`set_language()`を呼ぶより前(モジュールimport時点)に固定されてしまうため。
+- PyInstallerで`locale/`ディレクトリをバンドル(`assets/`と同様)。実機(Linux)でバンドル済み`.mo`が正しく`_MEIPASS/locale/`から読み込まれ、日本語・英語両方で正しく表示されることを確認済み。
+
 ## CI
 
 - `.github/workflows/ci.yml` — push/PR(mainブランチ)ごとにruff(lint+format check)/mypy/pytestを実行。Hamlibのインストールは不要(テストは`_fake_ctld.py`/`_fake_hamlib_list.py`等のフェイクスクリプトで完結し、実バインディングに依存しない)。

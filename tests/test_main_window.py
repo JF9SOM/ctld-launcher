@@ -187,7 +187,7 @@ def test_test_connection_reports_success(tmp_path, qtbot) -> None:  # type: igno
     assert "✓" in window._test_connection_result.text()
     assert "145000000" in window._test_connection_result.text()
     assert window._test_connection_button.isEnabled() is True
-    assert window._test_connection_button.text() == "接続テスト"
+    assert window._test_connection_button.text() == "Test connection"
 
 
 def test_test_connection_reports_missing_executable(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]

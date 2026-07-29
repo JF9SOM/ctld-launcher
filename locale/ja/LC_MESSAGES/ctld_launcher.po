@@ -1,0 +1,173 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ctld-launcher\n"
+"POT-Creation-Date: 2026-07-29 00:00+0900\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ja\n"
+
+msgid "Normal"
+msgstr "通常"
+
+msgid "Verbose (-v)"
+msgstr "詳細 (-v)"
+
+msgid "Verbose (-vv)"
+msgstr "詳細 (-vv)"
+
+msgid "Verbose (-vvv)"
+msgstr "詳細 (-vvv)"
+
+msgid "Debug (-vvvv)"
+msgstr "デバッグ (-vvvv)"
+
+msgid "Trace (-vvvvv)"
+msgstr "トレース (-vvvvv)"
+
+msgid "(Not set)"
+msgstr "(未指定)"
+
+msgid "+ Rig"
+msgstr "+ リグ"
+
+msgid "+ Rotator"
+msgstr "+ ローテーター"
+
+msgid "Remove"
+msgstr "削除"
+
+msgid "Start at login"
+msgstr "ログイン時に自動起動"
+
+msgid "Auto-start"
+msgstr "自動起動"
+
+msgid "Start this profile automatically when the app launches"
+msgstr "アプリ起動時にこのプロファイルも自動的に起動する"
+
+msgid "Command"
+msgstr "実行中のコマンド"
+
+msgid "Start"
+msgstr "起動"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Restart"
+msgstr "再起動"
+
+msgid "Log"
+msgstr "ログ"
+
+msgid "Model"
+msgstr "モデル"
+
+msgid "Manufacturer"
+msgstr "メーカー"
+
+msgid "Model name"
+msgstr "機種"
+
+msgid "Model ID"
+msgstr "モデルID"
+
+msgid "Connection"
+msgstr "接続"
+
+msgid "Port"
+msgstr "ポート"
+
+msgid "Refresh ports"
+msgstr "ポートを再検出"
+
+msgid "Speed"
+msgstr "速度"
+
+msgid "Test connection"
+msgstr "接続テスト"
+
+msgid "Query once via rigctl/rotctl to check the port, speed, and model settings"
+msgstr "rigctl/rotctlで一度だけ問い合わせて、ポート・速度・機種設定が正しいか確認します"
+
+msgid "Advanced (data bits, parity, flow control)"
+msgstr "詳細設定(データビット・パリティ・フロー制御)"
+
+msgid "Data bits"
+msgstr "データビット"
+
+msgid "Stop bits"
+msgstr "ストップビット"
+
+msgid "Parity"
+msgstr "パリティ"
+
+msgid "Flow control"
+msgstr "フロー制御"
+
+msgid "Network"
+msgstr "ネットワーク"
+
+msgid "Debug"
+msgstr "デバッグ"
+
+msgid "Log file path (optional)"
+msgstr "ログファイルパス(任意)"
+
+msgid "Browse…"
+msgstr "参照…"
+
+msgid "Extra options (advanced)"
+msgstr "追加オプション(上級者向け)"
+
+msgid "New Rig"
+msgstr "新しいリグ"
+
+msgid "New Rotator"
+msgstr "新しいローテーター"
+
+msgid "Couldn't set autostart"
+msgstr "自動起動の設定に失敗しました"
+
+msgid "✗ {error}"
+msgstr "✗ {error}"
+
+msgid "Testing…"
+msgstr "テスト中…"
+
+msgid "✗ Timed out (no response from port)"
+msgstr "✗ タイムアウト(ポートが応答しません)"
+
+msgid "✗ Couldn't run: {error}"
+msgstr "✗ 実行できませんでした: {error}"
+
+msgid "✓ Response: {output}"
+msgstr "✓ 応答: {output}"
+
+msgid "Error"
+msgstr "エラー"
+
+msgid "✗ {output}"
+msgstr "✗ {output}"
+
+msgid "Select log file"
+msgstr "ログファイルを選択"
+
+msgid "Can't start"
+msgstr "起動できません"
+
+msgid "● Running · PID {pid}"
+msgstr "● 稼働中 · PID {pid}"
+
+msgid "○ Stopped"
+msgstr "○ 停止中"
+
+msgid "No profiles"
+msgstr "プロファイルがありません"
+
+msgid "Open settings…"
+msgstr "設定を開く…"
+
+msgid "Quit"
+msgstr "終了"

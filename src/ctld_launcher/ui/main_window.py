@@ -40,24 +40,49 @@ from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufac
 from ctld_launcher.core.process_manager import CtldProcess, build_command, build_test_command
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
+from ctld_launcher.i18n import _
 
 BAUD_RATES = ["1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"]
-DEBUG_LEVELS = [
-    "通常",
-    "詳細 (-v)",
-    "詳細 (-vv)",
-    "詳細 (-vvv)",
-    "デバッグ (-vvvv)",
-    "トレース (-vvvvv)",
-]
-UNSET = "(未指定)"
-DATA_BITS_OPTIONS = [UNSET, "7", "8"]
-STOP_BITS_OPTIONS = [UNSET, "1", "2"]
-PARITY_OPTIONS = [UNSET, "None", "Even", "Odd", "Mark", "Space"]
-HANDSHAKE_OPTIONS = [UNSET, "None", "XONXOFF", "Hardware"]
 
 RUNNING_COLOR = QColor("#1D9E75")
 STOPPED_COLOR = QColor("#888780")
+
+
+def _debug_levels() -> list[str]:
+    # Built lazily (called from _build_debug_group(), not at module import
+    # time) so set_language() — called early in main() — has already taken
+    # effect. See i18n.py's module docstring.
+    return [
+        _("Normal"),
+        _("Verbose (-v)"),
+        _("Verbose (-vv)"),
+        _("Verbose (-vvv)"),
+        _("Debug (-vvvv)"),
+        _("Trace (-vvvvv)"),
+    ]
+
+
+def _unset_label() -> str:
+    return _("(Not set)")
+
+
+def _data_bits_options() -> list[str]:
+    return [_unset_label(), "7", "8"]
+
+
+def _stop_bits_options() -> list[str]:
+    return [_unset_label(), "1", "2"]
+
+
+def _parity_options() -> list[str]:
+    # "None"/"Even"/"Odd"/"Mark"/"Space" are Hamlib's own -C serial_parity=
+    # values, passed verbatim on the command line — not translatable.
+    return [_unset_label(), "None", "Even", "Odd", "Mark", "Space"]
+
+
+def _handshake_options() -> list[str]:
+    # Same as above: Hamlib's -C serial_handshake= values, not translatable.
+    return [_unset_label(), "None", "XONXOFF", "Hardware"]
 
 
 def status_dot_icon(running: bool) -> QIcon:
@@ -79,12 +104,12 @@ def _set_combo_text(combo: QComboBox, value: str) -> None:
 
 def _combo_or_none(combo: QComboBox) -> str | None:
     text = combo.currentText()
-    return None if text == UNSET else text
+    return None if text == _unset_label() else text
 
 
 def _int_or_none(combo: QComboBox) -> int | None:
     text = combo.currentText()
-    return None if text == UNSET else int(text)
+    return None if text == _unset_label() else int(text)
 
 
 def _refresh_combo_search(combo: QComboBox) -> None:
@@ -152,9 +177,9 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(container)
 
         add_row = QHBoxLayout()
-        add_rig_button = QPushButton("+ リグ")
+        add_rig_button = QPushButton(_("+ Rig"))
         add_rig_button.clicked.connect(lambda: self._add_profile(ProfileKind.RIG))
-        add_rotator_button = QPushButton("+ ローテーター")
+        add_rotator_button = QPushButton(_("+ Rotator"))
         add_rotator_button.clicked.connect(lambda: self._add_profile(ProfileKind.ROTATOR))
         add_row.addWidget(add_rig_button)
         add_row.addWidget(add_rotator_button)
@@ -164,11 +189,11 @@ class MainWindow(QMainWindow):
         self._list.currentItemChanged.connect(self._on_selection_changed)
         layout.addWidget(self._list)
 
-        remove_button = QPushButton("削除")
+        remove_button = QPushButton(_("Remove"))
         remove_button.clicked.connect(self._remove_selected)
         layout.addWidget(remove_button)
 
-        self._autostart_checkbox = QCheckBox("ログイン時に自動起動")
+        self._autostart_checkbox = QCheckBox(_("Start at login"))
         self._autostart_checkbox.setEnabled(self._autostart.is_supported())
         if self._autostart.is_supported():
             self._autostart_checkbox.setChecked(self._autostart.is_enabled())
@@ -186,9 +211,9 @@ class MainWindow(QMainWindow):
         self._name_edit = QLineEdit()
         self._name_edit.editingFinished.connect(self._on_name_changed)
         header.addWidget(self._name_edit)
-        self._profile_autostart_checkbox = QCheckBox("自動起動")
+        self._profile_autostart_checkbox = QCheckBox(_("Auto-start"))
         self._profile_autostart_checkbox.setToolTip(
-            "アプリ起動時にこのプロファイルも自動的に起動する"
+            _("Start this profile automatically when the app launches")
         )
         self._profile_autostart_checkbox.toggled.connect(self._on_field_changed)
         header.addWidget(self._profile_autostart_checkbox)
@@ -202,25 +227,25 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._build_debug_group())
         layout.addWidget(self._build_extra_args_group())
 
-        layout.addWidget(QLabel("実行中のコマンド"))
+        layout.addWidget(QLabel(_("Command")))
         self._command_preview = QLineEdit()
         self._command_preview.setReadOnly(True)
         self._command_preview.setStyleSheet("font-family: monospace;")
         layout.addWidget(self._command_preview)
 
         button_row = QHBoxLayout()
-        self._start_button = QPushButton("起動")
+        self._start_button = QPushButton(_("Start"))
         self._start_button.clicked.connect(self._on_start)
-        self._stop_button = QPushButton("停止")
+        self._stop_button = QPushButton(_("Stop"))
         self._stop_button.clicked.connect(self._on_stop)
-        self._restart_button = QPushButton("再起動")
+        self._restart_button = QPushButton(_("Restart"))
         self._restart_button.clicked.connect(self._on_restart)
         button_row.addWidget(self._start_button)
         button_row.addWidget(self._stop_button)
         button_row.addWidget(self._restart_button)
         layout.addLayout(button_row)
 
-        layout.addWidget(QLabel("ログ"))
+        layout.addWidget(QLabel(_("Log")))
         self._log_view = QPlainTextEdit()
         self._log_view.setReadOnly(True)
         self._log_view.setStyleSheet("font-family: monospace;")
@@ -230,7 +255,7 @@ class MainWindow(QMainWindow):
         return container
 
     def _build_model_group(self) -> QGroupBox:
-        group = QGroupBox("モデル")
+        group = QGroupBox(_("Model"))
         layout = QHBoxLayout(group)
         self._manufacturer_combo = QComboBox()
         self._manufacturer_combo.currentIndexChanged.connect(self._on_manufacturer_changed)
@@ -241,30 +266,30 @@ class MainWindow(QMainWindow):
         self._model_id_spin = QSpinBox()
         self._model_id_spin.setRange(0, 999_999)
         self._model_id_spin.valueChanged.connect(self._on_field_changed)
-        layout.addWidget(QLabel("メーカー"))
+        layout.addWidget(QLabel(_("Manufacturer")))
         layout.addWidget(self._manufacturer_combo)
-        layout.addWidget(QLabel("機種"))
+        layout.addWidget(QLabel(_("Model name")))
         layout.addWidget(self._model_combo)
-        layout.addWidget(QLabel("モデルID"))
+        layout.addWidget(QLabel(_("Model ID")))
         layout.addWidget(self._model_id_spin)
         return group
 
     def _build_connection_group(self) -> QGroupBox:
-        group = QGroupBox("接続")
+        group = QGroupBox(_("Connection"))
         outer = QVBoxLayout(group)
 
         row = QHBoxLayout()
-        row.addWidget(QLabel("ポート"))
+        row.addWidget(QLabel(_("Port")))
         self._port_combo = QComboBox()
         self._port_combo.setEditable(True)
         self._port_combo.currentTextChanged.connect(self._on_field_changed)
         refresh_button = QToolButton()
         refresh_button.setText("⟳")
-        refresh_button.setToolTip("ポートを再検出")
+        refresh_button.setToolTip(_("Refresh ports"))
         refresh_button.clicked.connect(self._refresh_ports)
         row.addWidget(self._port_combo, stretch=2)
         row.addWidget(refresh_button)
-        row.addWidget(QLabel("速度"))
+        row.addWidget(QLabel(_("Speed")))
         self._baud_combo = QComboBox()
         self._baud_combo.setEditable(True)
         self._baud_combo.addItems(BAUD_RATES)
@@ -273,9 +298,9 @@ class MainWindow(QMainWindow):
         outer.addLayout(row)
 
         test_row = QHBoxLayout()
-        self._test_connection_button = QPushButton("接続テスト")
+        self._test_connection_button = QPushButton(_("Test connection"))
         self._test_connection_button.setToolTip(
-            "rigctl/rotctlで一度だけ問い合わせて、ポート・速度・機種設定が正しいか確認します"
+            _("Query once via rigctl/rotctl to check the port, speed, and model settings")
         )
         self._test_connection_button.clicked.connect(self._on_test_connection)
         self._test_connection_result = QLabel()
@@ -284,7 +309,7 @@ class MainWindow(QMainWindow):
         outer.addLayout(test_row)
 
         self._advanced_toggle = QToolButton()
-        self._advanced_toggle.setText("詳細設定(データビット・パリティ・フロー制御)")
+        self._advanced_toggle.setText(_("Advanced (data bits, parity, flow control)"))
         self._advanced_toggle.setCheckable(True)
         self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
         self._advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -295,22 +320,22 @@ class MainWindow(QMainWindow):
         advanced_row = QHBoxLayout(self._advanced_widget)
         advanced_row.setContentsMargins(0, 0, 0, 0)
         self._data_bits_combo = QComboBox()
-        self._data_bits_combo.addItems(DATA_BITS_OPTIONS)
+        self._data_bits_combo.addItems(_data_bits_options())
         self._data_bits_combo.currentTextChanged.connect(self._on_field_changed)
         self._stop_bits_combo = QComboBox()
-        self._stop_bits_combo.addItems(STOP_BITS_OPTIONS)
+        self._stop_bits_combo.addItems(_stop_bits_options())
         self._stop_bits_combo.currentTextChanged.connect(self._on_field_changed)
         self._parity_combo = QComboBox()
-        self._parity_combo.addItems(PARITY_OPTIONS)
+        self._parity_combo.addItems(_parity_options())
         self._parity_combo.currentTextChanged.connect(self._on_field_changed)
         self._handshake_combo = QComboBox()
-        self._handshake_combo.addItems(HANDSHAKE_OPTIONS)
+        self._handshake_combo.addItems(_handshake_options())
         self._handshake_combo.currentTextChanged.connect(self._on_field_changed)
         for label, widget in (
-            ("データビット", self._data_bits_combo),
-            ("ストップビット", self._stop_bits_combo),
-            ("パリティ", self._parity_combo),
-            ("フロー制御", self._handshake_combo),
+            (_("Data bits"), self._data_bits_combo),
+            (_("Stop bits"), self._stop_bits_combo),
+            (_("Parity"), self._parity_combo),
+            (_("Flow control"), self._handshake_combo),
         ):
             advanced_row.addWidget(QLabel(label))
             advanced_row.addWidget(widget)
@@ -319,7 +344,7 @@ class MainWindow(QMainWindow):
         return group
 
     def _build_network_group(self) -> QGroupBox:
-        group = QGroupBox("ネットワーク")
+        group = QGroupBox(_("Network"))
         layout = QHBoxLayout(group)
         self._listen_address_edit = QLineEdit()
         self._listen_address_edit.editingFinished.connect(self._on_field_changed)
@@ -331,15 +356,15 @@ class MainWindow(QMainWindow):
         return group
 
     def _build_debug_group(self) -> QGroupBox:
-        group = QGroupBox("デバッグ")
+        group = QGroupBox(_("Debug"))
         layout = QHBoxLayout(group)
         self._debug_level_combo = QComboBox()
-        self._debug_level_combo.addItems(DEBUG_LEVELS)
+        self._debug_level_combo.addItems(_debug_levels())
         self._debug_level_combo.currentIndexChanged.connect(self._on_field_changed)
         self._log_file_edit = QLineEdit()
-        self._log_file_edit.setPlaceholderText("ログファイルパス(任意)")
+        self._log_file_edit.setPlaceholderText(_("Log file path (optional)"))
         self._log_file_edit.editingFinished.connect(self._on_field_changed)
-        browse_button = QPushButton("参照…")
+        browse_button = QPushButton(_("Browse…"))
         browse_button.clicked.connect(self._browse_log_file)
         layout.addWidget(self._debug_level_combo)
         layout.addWidget(self._log_file_edit, stretch=1)
@@ -347,7 +372,7 @@ class MainWindow(QMainWindow):
         return group
 
     def _build_extra_args_group(self) -> QGroupBox:
-        group = QGroupBox("追加オプション(上級者向け)")
+        group = QGroupBox(_("Extra options (advanced)"))
         layout = QVBoxLayout(group)
         self._extra_args_edit = QLineEdit()
         self._extra_args_edit.setPlaceholderText("-c 0x94")
@@ -390,9 +415,9 @@ class MainWindow(QMainWindow):
     def _add_profile(self, kind: ProfileKind) -> None:
         model_id = default_model_id(kind)
         if kind == ProfileKind.RIG:
-            profile = Profile.new_rig(name="新しいリグ", model_id=model_id)
+            profile = Profile.new_rig(name=_("New Rig"), model_id=model_id)
         else:
-            profile = Profile.new_rotator(name="新しいローテーター", model_id=model_id)
+            profile = Profile.new_rotator(name=_("New Rotator"), model_id=model_id)
         self._profiles.append(profile)
         self._store.save(self._profiles)
         self._add_sidebar_item(profile)
@@ -416,7 +441,7 @@ class MainWindow(QMainWindow):
             else:
                 self._autostart.disable()
         except AutostartError as exc:
-            QMessageBox.warning(self, "自動起動の設定に失敗しました", str(exc))
+            QMessageBox.warning(self, _("Couldn't set autostart"), str(exc))
             self._autostart_checkbox.blockSignals(True)
             self._autostart_checkbox.setChecked(not checked)
             self._autostart_checkbox.blockSignals(False)
@@ -485,12 +510,12 @@ class MainWindow(QMainWindow):
             baud_text = str(profile.serial_speed) if profile.serial_speed else ""
             self._baud_combo.setCurrentText(baud_text)
 
-            data_bits_text = str(profile.data_bits) if profile.data_bits else UNSET
-            stop_bits_text = str(profile.stop_bits) if profile.stop_bits else UNSET
+            data_bits_text = str(profile.data_bits) if profile.data_bits else _unset_label()
+            stop_bits_text = str(profile.stop_bits) if profile.stop_bits else _unset_label()
             _set_combo_text(self._data_bits_combo, data_bits_text)
             _set_combo_text(self._stop_bits_combo, stop_bits_text)
-            _set_combo_text(self._parity_combo, profile.serial_parity or UNSET)
-            _set_combo_text(self._handshake_combo, profile.serial_handshake or UNSET)
+            _set_combo_text(self._parity_combo, profile.serial_parity or _unset_label())
+            _set_combo_text(self._handshake_combo, profile.serial_handshake or _unset_label())
 
             self._listen_address_edit.setText(profile.listen_address)
             self._listen_port_spin.setValue(profile.listen_port)
@@ -562,12 +587,12 @@ class MainWindow(QMainWindow):
         try:
             executable = self._test_executable_resolver(profile.kind)
         except ExecutableNotFoundError as exc:
-            self._test_connection_result.setText(f"✗ {exc}")
+            self._test_connection_result.setText(_("✗ {error}").format(error=exc))
             return
 
         command = build_test_command(executable, profile)
         self._test_connection_button.setEnabled(False)
-        self._test_connection_button.setText("テスト中…")
+        self._test_connection_button.setText(_("Testing…"))
         self._test_connection_result.setText("")
         try:
             result = subprocess.run(  # noqa: S603
@@ -577,23 +602,26 @@ class MainWindow(QMainWindow):
                 timeout=5,
             )
         except subprocess.TimeoutExpired:
-            self._test_connection_result.setText("✗ タイムアウト(ポートが応答しません)")
+            self._test_connection_result.setText(_("✗ Timed out (no response from port)"))
         except OSError as exc:
-            self._test_connection_result.setText(f"✗ 実行できませんでした: {exc}")
+            self._test_connection_result.setText(_("✗ Couldn't run: {error}").format(error=exc))
         else:
             output = (result.stdout or result.stderr).strip()
             if result.returncode == 0 and output:
-                self._test_connection_result.setText(f"✓ 応答: {output}")
+                message = _("✓ Response: {output}").format(output=output)
+                self._test_connection_result.setText(message)
             else:
-                self._test_connection_result.setText(f"✗ {output or 'エラー'}")
+                self._test_connection_result.setText(
+                    _("✗ {output}").format(output=output or _("Error"))
+                )
         finally:
             self._test_connection_button.setEnabled(True)
-            self._test_connection_button.setText("接続テスト")
+            self._test_connection_button.setText(_("Test connection"))
 
     def _browse_log_file(self) -> None:
         path, _selected_filter = QFileDialog.getSaveFileName(
             self,
-            "ログファイルを選択",
+            _("Select log file"),
             self._log_file_edit.text(),
             options=QFileDialog.Option.DontConfirmOverwrite,
         )
@@ -681,7 +709,7 @@ class MainWindow(QMainWindow):
         try:
             executable = self._executable_resolver(profile.kind)
         except ExecutableNotFoundError as exc:
-            QMessageBox.warning(self, "起動できません", str(exc))
+            QMessageBox.warning(self, _("Can't start"), str(exc))
             return
         command = build_command(executable, profile)
         process = CtldProcess(
@@ -741,9 +769,9 @@ class MainWindow(QMainWindow):
             self._status_label.setText("")
         elif running:
             process = self._processes[profile.id]
-            self._status_label.setText(f"● 稼働中 · PID {process.pid}")
+            self._status_label.setText(_("● Running · PID {pid}").format(pid=process.pid))
         else:
-            self._status_label.setText("○ 停止中")
+            self._status_label.setText(_("○ Stopped"))
         self._start_button.setEnabled(profile is not None and not running)
         self._stop_button.setEnabled(running)
         self._restart_button.setEnabled(running)

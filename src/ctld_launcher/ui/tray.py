@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
+from ctld_launcher.i18n import _
 from ctld_launcher.ui.main_window import MainWindow, status_dot_icon
 
 
@@ -46,7 +47,7 @@ class TrayIcon(QSystemTrayIcon):
         menu.clear()
         profiles = self._window.profiles
         if not profiles:
-            empty_action = menu.addAction("プロファイルがありません")
+            empty_action = menu.addAction(_("No profiles"))
             empty_action.setEnabled(False)
         for profile in profiles:
             running = self._window.is_running(profile.id)
@@ -55,9 +56,9 @@ class TrayIcon(QSystemTrayIcon):
                 lambda checked=False, profile_id=profile.id: self._window.toggle_process(profile_id)
             )
         menu.addSeparator()
-        open_action = menu.addAction("設定を開く…")
+        open_action = menu.addAction(_("Open settings…"))
         open_action.triggered.connect(self._window.show_and_raise)
-        quit_action = menu.addAction("終了")
+        quit_action = menu.addAction(_("Quit"))
         quit_action.triggered.connect(self._app.quit)
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:

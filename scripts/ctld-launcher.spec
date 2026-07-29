@@ -47,6 +47,9 @@ if _hamlib_dir.exists():
 # --------------------------------------------------------------------------- #
 datas = [
     (str(ROOT / "assets"), "assets"),
+    # i18n .mo catalogs (see src/ctld_launcher/i18n.py's _locale_dir(),
+    # which looks for this exact "locale" prefix under sys._MEIPASS)
+    (str(ROOT / "locale"), "locale"),
 ] + hamlib_datas
 
 hidden_imports = [

@@ -1,0 +1,238 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR ORGANIZATION
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2026-07-29 15:29+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: pygettext.py 1.5\n"
+
+
+#: src/ctld_launcher/ui/main_window.py:56
+msgid "Normal"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:57
+msgid "Verbose (-v)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:58
+msgid "Verbose (-vv)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:59
+msgid "Verbose (-vvv)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:60
+msgid "Debug (-vvvv)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:61
+msgid "Trace (-vvvvv)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:66
+msgid "(Not set)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:180
+msgid "+ Rig"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:182
+msgid "+ Rotator"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:192
+msgid "Remove"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:196
+msgid "Start at login"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:214
+msgid "Auto-start"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:216
+msgid "Start this profile automatically when the app launches"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:230
+msgid "Command"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:237
+msgid "Start"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:239
+msgid "Stop"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:241
+msgid "Restart"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:248
+msgid "Log"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:258
+msgid "Model"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:269
+msgid "Manufacturer"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:271
+msgid "Model name"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:273
+msgid "Model ID"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:278
+msgid "Connection"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:282
+msgid "Port"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:288
+msgid "Refresh ports"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:292
+msgid "Speed"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:301
+#: src/ctld_launcher/ui/main_window.py:619
+msgid "Test connection"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:303
+msgid "Query once via rigctl/rotctl to check the port, speed, and model settings"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:312
+msgid "Advanced (data bits, parity, flow control)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:335
+msgid "Data bits"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:336
+msgid "Stop bits"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:337
+msgid "Parity"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:338
+msgid "Flow control"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:347
+msgid "Network"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:359
+msgid "Debug"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:365
+msgid "Log file path (optional)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:367
+msgid "Browse…"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:375
+msgid "Extra options (advanced)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:418
+msgid "New Rig"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:420
+msgid "New Rotator"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:444
+msgid "Couldn't set autostart"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:590
+msgid "✗ {error}"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:595
+msgid "Testing…"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:605
+msgid "✗ Timed out (no response from port)"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:607
+msgid "✗ Couldn't run: {error}"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:611
+msgid "✓ Response: {output}"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:615
+msgid "Error"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:615
+msgid "✗ {output}"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:624
+msgid "Select log file"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:712
+msgid "Can't start"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:772
+msgid "● Running · PID {pid}"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:774
+msgid "○ Stopped"
+msgstr ""
+
+#: src/ctld_launcher/ui/tray.py:50
+msgid "No profiles"
+msgstr ""
+
+#: src/ctld_launcher/ui/tray.py:59
+msgid "Open settings…"
+msgstr ""
+
+#: src/ctld_launcher/ui/tray.py:61
+msgid "Quit"
+msgstr ""
+

@@ -20,9 +20,9 @@ def test_tray_menu_lists_profiles_and_actions(tmp_path, qtbot, qapp) -> None:  #
     tray._rebuild_menu(menu)
 
     labels = [action.text() for action in menu.actions()]
-    assert any("新しいリグ" in label for label in labels)
-    assert "設定を開く…" in labels
-    assert "終了" in labels
+    assert any("New Rig" in label for label in labels)
+    assert "Open settings…" in labels
+    assert "Quit" in labels
 
 
 def test_tray_menu_empty_state(tmp_path, qtbot, qapp) -> None:  # type: ignore[no-untyped-def]
@@ -35,4 +35,4 @@ def test_tray_menu_empty_state(tmp_path, qtbot, qapp) -> None:  # type: ignore[n
     tray._rebuild_menu(menu)
 
     labels = [action.text() for action in menu.actions()]
-    assert "プロファイルがありません" in labels
+    assert "No profiles" in labels
