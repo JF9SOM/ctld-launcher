@@ -8,9 +8,7 @@ Pick your rig/rotator's manufacturer and model, serial port, and baud rate from 
 
 Available for Linux, Windows, and macOS.
 
-![Settings screen](docs/screenshot-settings.png)
-
-*(Screenshot shows the Japanese UI — English is also available via the language selector in the top-left corner.)*
+![Settings screen](docs/screenshot-settings-en.png)
 
 For background and technical/architecture details, see [CLAUDE.md](CLAUDE.md) (Japanese).
 
