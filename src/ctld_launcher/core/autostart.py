@@ -24,6 +24,13 @@ LINUX_UNIT_NAME = f"{APP_NAME}.service"
 MACOS_LABEL = f"com.jf9som.{APP_NAME}"
 WINDOWS_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
+# Passed to the app on an autostart-triggered launch so main.py knows to stay
+# in the tray instead of opening the settings window (see main.py's
+# should_show_on_startup()). A manual launch (double-click, app menu, PATH)
+# never has this flag, so it opens the window right away — otherwise users
+# clicking the icon see nothing happen and assume the app didn't start.
+MINIMIZED_FLAG = "--minimized"
+
 
 class AutostartError(Exception):
     """Raised when enabling/disabling autostart fails."""
@@ -50,8 +57,8 @@ def default_command() -> list[str]:
     """
     exe = shutil.which(APP_NAME)
     if exe:
-        return [exe]
-    return [sys.executable, "-m", "ctld_launcher"]
+        return [exe, MINIMIZED_FLAG]
+    return [sys.executable, "-m", "ctld_launcher", MINIMIZED_FLAG]
 
 
 def is_supported() -> bool:

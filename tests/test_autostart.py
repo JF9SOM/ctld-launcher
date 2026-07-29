@@ -103,4 +103,10 @@ def test_windows_enable_disable_registry(monkeypatch) -> None:  # type: ignore[n
 def test_default_command_falls_back_to_module_invocation(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setattr(autostart.shutil, "which", lambda _name: None)
     command = autostart.default_command()
-    assert command == [sys.executable, "-m", "ctld_launcher"]
+    assert command == [sys.executable, "-m", "ctld_launcher", autostart.MINIMIZED_FLAG]
+
+
+def test_default_command_uses_installed_script_when_found(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(autostart.shutil, "which", lambda _name: "/usr/bin/ctld-launcher")
+    command = autostart.default_command()
+    assert command == ["/usr/bin/ctld-launcher", autostart.MINIMIZED_FLAG]

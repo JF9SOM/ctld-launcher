@@ -43,6 +43,12 @@ msgstr "任意のプロファイル名を入力して下さい。"
 msgid "Start at login"
 msgstr "ログイン時に自動起動"
 
+msgid "Minimize to tray"
+msgstr "トレイに最小化"
+
+msgid "Hides this window; rigctld/rotctld keep running in the background. Click the tray icon to bring it back."
+msgstr "この画面を隠しますが、rigctld/rotctldはバックグラウンドで動作し続けます。トレイアイコンをクリックすると再表示できます。"
+
 msgid "Quit ctld-launcher"
 msgstr "ctld-launcherを終了"
 

@@ -220,6 +220,16 @@ class MainWindow(QMainWindow):
         self._autostart_checkbox.toggled.connect(self._on_autostart_toggled)
         layout.addWidget(self._autostart_checkbox)
 
+        self._minimize_button = QPushButton(_("Minimize to tray"))
+        self._minimize_button.setToolTip(
+            _(
+                "Hides this window; rigctld/rotctld keep running in the background. "
+                "Click the tray icon to bring it back."
+            )
+        )
+        self._minimize_button.clicked.connect(self.hide)
+        layout.addWidget(self._minimize_button)
+
         self._quit_button = QPushButton(_("Quit ctld-launcher"))
         self._quit_button.setToolTip(
             _(
@@ -588,6 +598,13 @@ class MainWindow(QMainWindow):
             _(
                 "Starts this app itself in the tray at login. To also start individual "
                 'profiles automatically, enable each profile\'s own "Auto-start" too.'
+            )
+        )
+        self._minimize_button.setText(_("Minimize to tray"))
+        self._minimize_button.setToolTip(
+            _(
+                "Hides this window; rigctld/rotctld keep running in the background. "
+                "Click the tray icon to bring it back."
             )
         )
         self._quit_button.setText(_("Quit ctld-launcher"))

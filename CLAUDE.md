@@ -20,6 +20,7 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
   - Linux: `~/.config/systemd/user/`にunit生成 → `systemctl --user enable`(`--now`は付けない — チェックボックスON時にアプリが二重起動しないよう、反映は次回ログイン時)
   - macOS: `~/Library/LaunchAgents/`にplist生成(`launchctl load`は同じ理由で呼ばない — launchdが次回ログイン時に自動で拾う)
   - Windows: `HKEY_CURRENT_USER\...\Run`レジストリキー(`winreg`、追加依存なし、管理者権限不要)
+  - `autostart.default_command()`は起動コマンドの末尾に`--minimized`フラグ(`MINIMIZED_FLAG`)を付与する。`main.py`の`should_show_on_startup()`がこれを見て、手動起動(ダブルクリック・アプリメニュー等、このフラグが付かない)では設定画面を即座に開き、自動起動経由の起動ではトレイに常駐したまま画面を開かない。これがないと、ログイン時自動起動でない手動起動でも画面が開かず、ユーザーが「起動できていない」と誤解する問題があった。
 
 ## 主要機能(予定)
 

@@ -262,6 +262,15 @@ def test_civ_field_persists_to_profile(tmp_path, qtbot) -> None:  # type: ignore
     assert "-c 0x94" in window._command_preview.text()
 
 
+def test_minimize_button_hides_window(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    window.show()
+
+    window._minimize_button.click()
+
+    assert window.isHidden() is True
+
+
 def test_quit_button_calls_qapplication_quit(tmp_path, qtbot, qapp) -> None:  # type: ignore[no-untyped-def]
     window = _make_window(tmp_path, qtbot)
     calls = []

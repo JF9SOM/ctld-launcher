@@ -55,7 +55,8 @@ Settings are saved automatically; there's no separate save button.
 - Before starting, you can click "Test connection" to run a single one-shot query via `rigctl`/`rotctl` and confirm the port, speed, and model settings are correct. Note that if the radio is powered off or the cable isn't connected, `rigctld` itself will still start and keep running — it just won't respond to your rig control software — so it's worth testing the connection first.
 - Use "Stop" and "Restart" to stop or restart a running process. The "Log" panel shows `rigctld`/`rotctld`'s console output.
 - Turning on a profile's "Auto-start" checkbox makes that profile launch automatically whenever the app starts. Turning on "Start at login" in the left sidebar makes the app itself launch into the system tray automatically when you log in.
-- Closing the window doesn't quit the app — it stays running in the system tray. Left-click the tray icon to bring the settings window back; right-click it for a menu with per-profile start/stop, "Open settings…", and "Quit". To fully quit the app, use "Quit" from the tray menu, or the "Quit ctld-launcher" button at the bottom of the sidebar.
+- Launching the app (clicking its icon, or running `ctld-launcher`) normally opens the settings window right away. Only when launched automatically at login does it start minimized to the tray, without opening the window.
+- Closing the window doesn't quit the app — it stays running in the system tray (the "Minimize to tray" button at the bottom of the sidebar does the same thing). Left-click the tray icon to bring the settings window back; right-click it for a menu with per-profile start/stop, "Open settings…", and "Quit". To fully quit the app, use "Quit" from the tray menu, or the "Quit ctld-launcher" button at the bottom of the sidebar.
 - Use the combo box in the top-left to switch the display language between English and Japanese (no restart needed).
 
 ## Development
