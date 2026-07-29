@@ -34,6 +34,7 @@ class Profile:
     stop_bits: int | None = None
     serial_parity: str | None = None
     serial_handshake: str | None = None
+    civ_address: str | None = None
     listen_address: str = "127.0.0.1"
     listen_port: int = DEFAULT_RIG_PORT
     debug_level: int = 0
@@ -48,6 +49,7 @@ class Profile:
         model_id: int,
         port: str = "",
         serial_speed: int | None = None,
+        civ_address: str | None = None,
         listen_address: str = "127.0.0.1",
         listen_port: int = DEFAULT_RIG_PORT,
         debug_level: int = 0,
@@ -61,6 +63,7 @@ class Profile:
             model_id=model_id,
             port=port,
             serial_speed=serial_speed,
+            civ_address=civ_address,
             listen_address=listen_address,
             listen_port=listen_port,
             debug_level=debug_level,

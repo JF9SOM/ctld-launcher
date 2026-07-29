@@ -207,6 +207,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._remove_button)
 
         self._autostart_checkbox = QCheckBox(_("Start at login"))
+        self._autostart_checkbox.setToolTip(
+            _(
+                "Starts this app itself in the tray at login. To also start individual "
+                'profiles automatically, enable each profile\'s own "Auto-start" too.'
+            )
+        )
         self._autostart_checkbox.setEnabled(self._autostart.is_supported())
         if self._autostart.is_supported():
             self._autostart_checkbox.setChecked(self._autostart.is_enabled())
@@ -273,13 +279,24 @@ class MainWindow(QMainWindow):
         self._model_group = QGroupBox(_("Model"))
         layout = QHBoxLayout(self._model_group)
         self._manufacturer_combo = QComboBox()
+        self._manufacturer_combo.setToolTip(
+            _("Select the manufacturer of your rig/rotator. You can type to filter the list.")
+        )
         self._manufacturer_combo.currentIndexChanged.connect(self._on_manufacturer_changed)
         _refresh_combo_search(self._manufacturer_combo)
         self._model_combo = QComboBox()
+        self._model_combo.setToolTip(_("Select the model of your rig/rotator."))
         self._model_combo.currentIndexChanged.connect(self._on_model_combo_changed)
         _refresh_combo_search(self._model_combo)
         self._model_id_spin = QSpinBox()
         self._model_id_spin.setRange(0, 999_999)
+        self._model_id_spin.setToolTip(
+            _(
+                "Hamlib's numeric model ID. Filled in automatically when you pick a "
+                "manufacturer/model above; you can also type it directly for a model "
+                "not in the list."
+            )
+        )
         self._model_id_spin.valueChanged.connect(self._on_field_changed)
         self._manufacturer_label = QLabel(_("Manufacturer"))
         self._model_name_label = QLabel(_("Model name"))
@@ -301,10 +318,16 @@ class MainWindow(QMainWindow):
         row.addWidget(self._port_label)
         self._port_combo = QComboBox()
         self._port_combo.setEditable(True)
+        self._port_combo.setToolTip(_("Select the serial port your rig/rotator is connected to."))
         self._port_combo.currentTextChanged.connect(self._on_field_changed)
         self._refresh_button = QToolButton()
         self._refresh_button.setText("⟳")
-        self._refresh_button.setToolTip(_("Refresh ports"))
+        self._refresh_button.setToolTip(
+            _(
+                "Re-scan connected serial ports. Click this if you plugged in the "
+                "device after opening the app."
+            )
+        )
         self._refresh_button.clicked.connect(self._refresh_ports)
         row.addWidget(self._port_combo, stretch=2)
         row.addWidget(self._refresh_button)
@@ -320,6 +343,23 @@ class MainWindow(QMainWindow):
         row.addWidget(self._baud_combo, stretch=1)
         outer.addLayout(row)
 
+        self._civ_widget = QWidget()
+        civ_row = QHBoxLayout(self._civ_widget)
+        civ_row.setContentsMargins(0, 0, 0, 0)
+        self._civ_label = QLabel(_("ICOM CIV address"))
+        civ_row.addWidget(self._civ_label)
+        self._civ_address_edit = QLineEdit()
+        self._civ_address_edit.setPlaceholderText("0x94")
+        self._civ_address_edit.setToolTip(
+            _(
+                "For ICOM rigs, enter the same CIV address set on the radio. "
+                "Leave blank for other manufacturers."
+            )
+        )
+        self._civ_address_edit.editingFinished.connect(self._on_field_changed)
+        civ_row.addWidget(self._civ_address_edit, stretch=1)
+        outer.addWidget(self._civ_widget)
+
         test_row = QHBoxLayout()
         self._test_connection_button = QPushButton(_("Test connection"))
         self._test_connection_button.setToolTip(
@@ -333,26 +373,37 @@ class MainWindow(QMainWindow):
 
         self._advanced_toggle = QToolButton()
         self._advanced_toggle.setText(_("Advanced (data bits, parity, flow control)"))
+        self._advanced_toggle.setToolTip(
+            _("Usually not needed. Only for rigs/rotators that require non-default settings.")
+        )
         self._advanced_toggle.setCheckable(True)
         self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
         self._advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self._advanced_toggle.clicked.connect(self._on_advanced_toggled)
         outer.addWidget(self._advanced_toggle)
 
+        advanced_tooltip = _(
+            'Usually fine left as "(Not set)". Only change if your rig/rotator\'s '
+            "manual specifies a particular value."
+        )
         self._advanced_widget = QWidget()
         advanced_row = QHBoxLayout(self._advanced_widget)
         advanced_row.setContentsMargins(0, 0, 0, 0)
         self._data_bits_combo = QComboBox()
         self._data_bits_combo.addItems(_data_bits_options())
+        self._data_bits_combo.setToolTip(advanced_tooltip)
         self._data_bits_combo.currentTextChanged.connect(self._on_field_changed)
         self._stop_bits_combo = QComboBox()
         self._stop_bits_combo.addItems(_stop_bits_options())
+        self._stop_bits_combo.setToolTip(advanced_tooltip)
         self._stop_bits_combo.currentTextChanged.connect(self._on_field_changed)
         self._parity_combo = QComboBox()
         self._parity_combo.addItems(_parity_options())
+        self._parity_combo.setToolTip(advanced_tooltip)
         self._parity_combo.currentTextChanged.connect(self._on_field_changed)
         self._handshake_combo = QComboBox()
         self._handshake_combo.addItems(_handshake_options())
+        self._handshake_combo.setToolTip(advanced_tooltip)
         self._handshake_combo.currentTextChanged.connect(self._on_field_changed)
         self._data_bits_label = QLabel(_("Data bits"))
         self._stop_bits_label = QLabel(_("Stop bits"))
@@ -373,8 +424,18 @@ class MainWindow(QMainWindow):
     def _build_network_group(self) -> QGroupBox:
         self._network_group = QGroupBox(_("Network"))
         layout = QHBoxLayout(self._network_group)
+        self._listen_address_label = QLabel(_("Listen address"))
+        layout.addWidget(self._listen_address_label)
         self._listen_address_edit = QLineEdit()
+        self._listen_address_edit.setToolTip(
+            _(
+                "Usually leave as 127.0.0.1 (only software on this same PC can connect). "
+                "Change to 0.0.0.0 to also allow other PCs on your LAN to connect."
+            )
+        )
         self._listen_address_edit.editingFinished.connect(self._on_field_changed)
+        self._listen_port_label = QLabel(_("Port"))
+        layout.addWidget(self._listen_port_label)
         self._listen_port_spin = QSpinBox()
         self._listen_port_spin.setRange(1, 65535)
         self._listen_port_spin.valueChanged.connect(self._on_field_changed)
@@ -387,9 +448,18 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(self._debug_group)
         self._debug_level_combo = QComboBox()
         self._debug_level_combo.addItems(_debug_levels())
+        self._debug_level_combo.setToolTip(
+            _('Raise this for more detailed logs. Leave as "Normal" unless troubleshooting.')
+        )
         self._debug_level_combo.currentIndexChanged.connect(self._on_field_changed)
         self._log_file_edit = QLineEdit()
         self._log_file_edit.setPlaceholderText(_("Log file path (optional)"))
+        self._log_file_edit.setToolTip(
+            _(
+                "Save rigctld/rotctld's output to this file, if you want a record of it. "
+                "The app works fine with this left blank."
+            )
+        )
         self._log_file_edit.editingFinished.connect(self._on_field_changed)
         self._browse_button = QPushButton(_("Browse…"))
         self._browse_button.clicked.connect(self._browse_log_file)
@@ -402,7 +472,9 @@ class MainWindow(QMainWindow):
         self._extra_args_group = QGroupBox(_("Extra options (advanced)"))
         layout = QVBoxLayout(self._extra_args_group)
         self._extra_args_edit = QLineEdit()
-        self._extra_args_edit.setPlaceholderText("-c 0x94")
+        self._extra_args_edit.setToolTip(
+            _("Additional command-line options passed to rigctld/rotctld (advanced).")
+        )
         self._extra_args_edit.setStyleSheet("font-family: monospace;")
         self._extra_args_edit.editingFinished.connect(self._on_field_changed)
         layout.addWidget(self._extra_args_edit)
@@ -495,6 +567,12 @@ class MainWindow(QMainWindow):
         self._add_rotator_button.setText(_("+ Rotator"))
         self._remove_button.setText(_("Remove"))
         self._autostart_checkbox.setText(_("Start at login"))
+        self._autostart_checkbox.setToolTip(
+            _(
+                "Starts this app itself in the tray at login. To also start individual "
+                'profiles automatically, enable each profile\'s own "Auto-start" too.'
+            )
+        )
 
         self._profile_autostart_checkbox.setText(_("Auto-start"))
         self._profile_autostart_checkbox.setToolTip(
@@ -508,33 +586,88 @@ class MainWindow(QMainWindow):
 
         self._model_group.setTitle(_("Model"))
         self._manufacturer_label.setText(_("Manufacturer"))
+        self._manufacturer_combo.setToolTip(
+            _("Select the manufacturer of your rig/rotator. You can type to filter the list.")
+        )
         self._model_name_label.setText(_("Model name"))
+        self._model_combo.setToolTip(_("Select the model of your rig/rotator."))
         self._model_id_label.setText(_("Model ID"))
+        self._model_id_spin.setToolTip(
+            _(
+                "Hamlib's numeric model ID. Filled in automatically when you pick a "
+                "manufacturer/model above; you can also type it directly for a model "
+                "not in the list."
+            )
+        )
 
         self._connection_group.setTitle(_("Connection"))
         self._port_label.setText(_("Port"))
-        self._refresh_button.setToolTip(_("Refresh ports"))
+        self._port_combo.setToolTip(_("Select the serial port your rig/rotator is connected to."))
+        self._refresh_button.setToolTip(
+            _(
+                "Re-scan connected serial ports. Click this if you plugged in the "
+                "device after opening the app."
+            )
+        )
         self._speed_label.setText(_("Speed"))
         self._baud_combo.setToolTip(
             _("Must match the serial speed set on the radio itself, or the connection will fail.")
+        )
+        self._civ_label.setText(_("ICOM CIV address"))
+        self._civ_address_edit.setToolTip(
+            _(
+                "For ICOM rigs, enter the same CIV address set on the radio. "
+                "Leave blank for other manufacturers."
+            )
         )
         self._test_connection_button.setText(_("Test connection"))
         self._test_connection_button.setToolTip(
             _("Query once via rigctl/rotctl to check the port, speed, and model settings")
         )
         self._advanced_toggle.setText(_("Advanced (data bits, parity, flow control)"))
+        self._advanced_toggle.setToolTip(
+            _("Usually not needed. Only for rigs/rotators that require non-default settings.")
+        )
+        advanced_tooltip = _(
+            'Usually fine left as "(Not set)". Only change if your rig/rotator\'s '
+            "manual specifies a particular value."
+        )
         self._data_bits_label.setText(_("Data bits"))
+        self._data_bits_combo.setToolTip(advanced_tooltip)
         self._stop_bits_label.setText(_("Stop bits"))
+        self._stop_bits_combo.setToolTip(advanced_tooltip)
         self._parity_label.setText(_("Parity"))
+        self._parity_combo.setToolTip(advanced_tooltip)
         self._handshake_label.setText(_("Flow control"))
+        self._handshake_combo.setToolTip(advanced_tooltip)
 
         self._network_group.setTitle(_("Network"))
+        self._listen_address_label.setText(_("Listen address"))
+        self._listen_address_edit.setToolTip(
+            _(
+                "Usually leave as 127.0.0.1 (only software on this same PC can connect). "
+                "Change to 0.0.0.0 to also allow other PCs on your LAN to connect."
+            )
+        )
+        self._listen_port_label.setText(_("Port"))
 
         self._debug_group.setTitle(_("Debug"))
+        self._debug_level_combo.setToolTip(
+            _('Raise this for more detailed logs. Leave as "Normal" unless troubleshooting.')
+        )
         self._log_file_edit.setPlaceholderText(_("Log file path (optional)"))
+        self._log_file_edit.setToolTip(
+            _(
+                "Save rigctld/rotctld's output to this file, if you want a record of it. "
+                "The app works fine with this left blank."
+            )
+        )
         self._browse_button.setText(_("Browse…"))
 
         self._extra_args_group.setTitle(_("Extra options (advanced)"))
+        self._extra_args_edit.setToolTip(
+            _("Additional command-line options passed to rigctld/rotctld (advanced).")
+        )
 
         for combo, options in (
             (self._debug_level_combo, _debug_levels()),
@@ -586,6 +719,7 @@ class MainWindow(QMainWindow):
             self._model_id_spin,
             self._port_combo,
             self._baud_combo,
+            self._civ_address_edit,
             self._test_connection_button,
             self._listen_address_edit,
             self._listen_port_spin,
@@ -618,6 +752,9 @@ class MainWindow(QMainWindow):
             baud_text = str(profile.serial_speed) if profile.serial_speed else ""
             self._baud_combo.setCurrentText(baud_text)
 
+            self._civ_widget.setVisible(profile.kind == ProfileKind.RIG)
+            self._civ_address_edit.setText(profile.civ_address or "")
+
             data_bits_text = str(profile.data_bits) if profile.data_bits else _unset_label()
             stop_bits_text = str(profile.stop_bits) if profile.stop_bits else _unset_label()
             _set_combo_text(self._data_bits_combo, data_bits_text)
@@ -627,12 +764,24 @@ class MainWindow(QMainWindow):
 
             self._listen_address_edit.setText(profile.listen_address)
             self._listen_port_spin.setValue(profile.listen_port)
+            self._listen_port_spin.setToolTip(self._listen_port_tooltip(profile.kind))
             self._debug_level_combo.setCurrentIndex(profile.debug_level)
             self._log_file_edit.setText(profile.log_file or "")
             self._extra_args_edit.setText(shlex.join(profile.extra_args))
         finally:
             self._updating_form = False
         self._update_status_and_buttons()
+
+    def _listen_port_tooltip(self, kind: ProfileKind) -> str:
+        if kind == ProfileKind.RIG:
+            return _(
+                "Default is 4532 for rigs. Match your rig control software's TCP "
+                "port to this number."
+            )
+        return _(
+            "Default is 4533 for rotators. Match your rotator control software's "
+            "TCP port to this number."
+        )
 
     def _models_for_kind(self, kind: ProfileKind) -> dict[str, list[tuple[int, str]]]:
         try:
@@ -758,6 +907,7 @@ class MainWindow(QMainWindow):
         profile.port = self._port_combo.currentText()
         baud_text = self._baud_combo.currentText().strip()
         profile.serial_speed = int(baud_text) if baud_text else None
+        profile.civ_address = self._civ_address_edit.text() or None
         profile.data_bits = _int_or_none(self._data_bits_combo)
         profile.stop_bits = _int_or_none(self._stop_bits_combo)
         profile.serial_parity = _combo_or_none(self._parity_combo)

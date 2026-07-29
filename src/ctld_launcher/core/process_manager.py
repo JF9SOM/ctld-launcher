@@ -39,14 +39,16 @@ def _serial_conf_args(profile: Profile) -> list[str]:
 def build_command(executable: str, profile: Profile) -> list[str]:
     """Translate a Profile into rigctld/rotctld CLI arguments.
 
-    Both daemons share the same -m/-r/-s/-t/-T/-v flags; anything not covered
-    (e.g. -c civaddr) goes through profile.extra_args verbatim.
+    Both daemons share the same -m/-r/-s/-c/-t/-T/-v flags; anything not
+    covered goes through profile.extra_args verbatim.
     """
     command = [executable, "-m", str(profile.model_id)]
     if profile.port:
         command += ["-r", profile.port]
     if profile.serial_speed:
         command += ["-s", str(profile.serial_speed)]
+    if profile.civ_address:
+        command += ["-c", profile.civ_address]
     command += _serial_conf_args(profile)
     command += ["-t", str(profile.listen_port)]
     if profile.listen_address:
@@ -70,6 +72,8 @@ def build_test_command(executable: str, profile: Profile) -> list[str]:
         command += ["-r", profile.port]
     if profile.serial_speed:
         command += ["-s", str(profile.serial_speed)]
+    if profile.civ_address:
+        command += ["-c", profile.civ_address]
     command += _serial_conf_args(profile)
     command.append("f" if profile.kind == ProfileKind.RIG else "p")
     return command

@@ -236,3 +236,39 @@ def test_language_combo_reflects_current_language_on_open(tmp_path, qtbot) -> No
         assert window._language_combo.currentData() == "ja"
     finally:
         set_language("en")
+
+
+def test_civ_field_visible_only_for_rig(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    # isHidden() (not isVisible()) since the window isn't shown in this
+    # test — isVisible() would be False regardless once shown/not shown.
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    assert window._civ_widget.isHidden() is False
+
+    window._add_profile(ProfileKind.ROTATOR)
+    assert window._civ_widget.isHidden() is True
+
+
+def test_civ_field_persists_to_profile(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    assert profile.civ_address is None
+
+    window._civ_address_edit.setText("0x94")
+    window._on_field_changed()
+
+    assert profile.civ_address == "0x94"
+    assert "-c 0x94" in window._command_preview.text()
+
+
+def test_listen_port_tooltip_differs_by_kind(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    rig_tooltip = window._listen_port_spin.toolTip()
+    assert "4532" in rig_tooltip
+
+    window._add_profile(ProfileKind.ROTATOR)
+    rotator_tooltip = window._listen_port_spin.toolTip()
+    assert "4533" in rotator_tooltip
+    assert rotator_tooltip != rig_tooltip

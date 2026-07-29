@@ -174,3 +174,54 @@ msgstr "設定を開く…"
 
 msgid "Quit"
 msgstr "終了"
+
+msgid "Additional command-line options passed to rigctld/rotctld (advanced)."
+msgstr "rigctld/rotctldに渡す追加のコマンドラインオプション(上級者向け)。"
+
+msgid "Default is 4532 for rigs. Match your rig control software's TCP port to this number."
+msgstr "リグの場合、デフォルトは4532です。リグ制御ソフト側のTCPポートもこの数字に合わせて下さい。"
+
+msgid "Default is 4533 for rotators. Match your rotator control software's TCP port to this number."
+msgstr "ローテーターの場合、デフォルトは4533です。ローテーター制御ソフト側のTCPポートもこの数字に合わせて下さい。"
+
+msgid "For ICOM rigs, enter the same CIV address set on the radio. Leave blank for other manufacturers."
+msgstr "ICOMリグの場合、無線機側のCIVアドレスと同じアドレスを入力して下さい。他社リグの場合は入力不要です。"
+
+msgid "Hamlib's numeric model ID. Filled in automatically when you pick a manufacturer/model above; you can also type it directly for a model not in the list."
+msgstr "Hamlibの機種番号です。メーカー・機種を選ぶと自動入力されます。リストにない機種は直接入力できます。"
+
+msgid "ICOM CIV address"
+msgstr "ICOM CIVアドレス"
+
+msgid "Listen address"
+msgstr "待受アドレス"
+
+msgid "Raise this for more detailed logs. Leave as \"Normal\" unless troubleshooting."
+msgstr "詳細なログを見たい場合に上げてください。トラブルがなければ「通常」のままで問題ありません。"
+
+msgid "Re-scan connected serial ports. Click this if you plugged in the device after opening the app."
+msgstr "接続されているシリアルポートを再検出します。ソフト起動後にケーブルを挿した場合はここを押してください。"
+
+msgid "Save rigctld/rotctld's output to this file, if you want a record of it. The app works fine with this left blank."
+msgstr "rigctld/rotctldの出力をファイルに保存したい場合に指定してください。空欄でも動作します。"
+
+msgid "Select the manufacturer of your rig/rotator. You can type to filter the list."
+msgstr "無線機/ローテーターのメーカーを選択してください。入力して絞り込むこともできます。"
+
+msgid "Select the model of your rig/rotator."
+msgstr "無線機/ローテーターの機種を選択してください。"
+
+msgid "Select the serial port your rig/rotator is connected to."
+msgstr "無線機/ローテーターが接続されているシリアルポートを選択してください。"
+
+msgid "Starts this app itself in the tray at login. To also start individual profiles automatically, enable each profile's own \"Auto-start\" too."
+msgstr "PCログイン時にこのアプリ自体をトレイに常駐起動します。個別のプロファイルも自動起動したい場合は、各プロファイルの「自動起動」も別途オンにしてください。"
+
+msgid "Usually fine left as \"(Not set)\". Only change if your rig/rotator's manual specifies a particular value."
+msgstr "通常は「(未指定)」のままで問題ありません。無線機/ローテーターの取扱説明書に指定がある場合のみ変更してください。"
+
+msgid "Usually leave as 127.0.0.1 (only software on this same PC can connect). Change to 0.0.0.0 to also allow other PCs on your LAN to connect."
+msgstr "通常は127.0.0.1のままにしてください(このPC内のソフトからのみ接続可能)。LAN内の他のPCからも接続させたい場合は0.0.0.0に変更してください。"
+
+msgid "Usually not needed. Only for rigs/rotators that require non-default settings."
+msgstr "通常は変更不要です。特殊な機種でのみ使用します。"

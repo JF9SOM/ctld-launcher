@@ -96,6 +96,37 @@ def test_build_test_command_rig_queries_get_freq() -> None:
     ]
 
 
+def test_build_command_includes_civ_address() -> None:
+    profile = Profile(
+        name="IC-9700",
+        kind=ProfileKind.RIG,
+        model_id=3081,
+        port="/dev/ttyUSB0",
+        civ_address="0x94",
+    )
+    command = build_command("rigctld", profile)
+    assert "-c" in command
+    assert command[command.index("-c") + 1] == "0x94"
+
+
+def test_build_test_command_includes_civ_address() -> None:
+    profile = Profile(
+        name="IC-9700",
+        kind=ProfileKind.RIG,
+        model_id=3081,
+        port="/dev/ttyUSB0",
+        civ_address="0x94",
+    )
+    command = build_test_command("rigctl", profile)
+    assert "-c" in command
+    assert command[command.index("-c") + 1] == "0x94"
+
+
+def test_build_command_omits_civ_flag_when_unset() -> None:
+    profile = Profile(name="Dummy", kind=ProfileKind.RIG, model_id=1)
+    assert "-c" not in build_command("rigctld", profile)
+
+
 def test_build_test_command_rotator_queries_get_pos() -> None:
     profile = Profile(name="SPID", kind=ProfileKind.ROTATOR, model_id=401, port="/dev/ttyUSB1")
     assert build_test_command("rotctl", profile) == [
