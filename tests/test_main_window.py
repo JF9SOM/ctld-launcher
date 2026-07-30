@@ -240,6 +240,7 @@ def test_test_connection_reports_success(tmp_path, qtbot) -> None:  # type: igno
     assert "145000000" in window._test_connection_result.text()
     assert window._test_connection_button.isEnabled() is True
     assert window._test_connection_button.text() == "Test connection"
+    assert "#1D9E75" in window._test_connection_button.styleSheet()
 
 
 def test_test_connection_reports_missing_executable(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -254,6 +255,19 @@ def test_test_connection_reports_missing_executable(tmp_path, qtbot) -> None:  #
     window._on_test_connection()
 
     assert "✗" in window._test_connection_result.text()
+    assert "#D9534F" in window._test_connection_button.styleSheet()
+
+
+def test_test_connection_button_style_resets_on_profile_switch(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    FAKE_RIGCTL.chmod(FAKE_RIGCTL.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, test_executable_resolver=lambda kind: str(FAKE_RIGCTL))
+    window._add_profile(ProfileKind.RIG)
+    window._on_test_connection()
+    assert window._test_connection_button.styleSheet() != ""
+
+    window._add_profile(ProfileKind.RIG)
+
+    assert window._test_connection_button.styleSheet() == ""
 
 
 def test_language_switch_retranslates_widgets(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]

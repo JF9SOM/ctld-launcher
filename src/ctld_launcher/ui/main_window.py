@@ -54,6 +54,9 @@ BAUD_RATES = ["1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200
 RUNNING_COLOR = QColor("#1D9E75")
 STOPPED_COLOR = QColor("#888780")
 
+TEST_SUCCESS_STYLE = "background-color: #1D9E75; color: white;"
+TEST_FAILURE_STYLE = "background-color: #D9534F; color: white;"
+
 
 def _debug_levels() -> list[str]:
     # Built lazily (called from _build_debug_group(), not at module import
@@ -855,6 +858,7 @@ class MainWindow(QMainWindow):
         try:
             self._name_edit.setText(profile.name)
             self._test_connection_result.setText("")
+            self._test_connection_button.setStyleSheet("")
 
             models = self._models_for_kind(profile.kind)
             self._manufacturer_combo.clear()
@@ -985,6 +989,12 @@ class MainWindow(QMainWindow):
         self._port_combo.addItems(list_serial_ports())
         self._port_combo.setCurrentText(current)
 
+    def _set_test_connection_result(self, message: str, success: bool) -> None:
+        self._test_connection_result.setText(message)
+        self._test_connection_button.setStyleSheet(
+            TEST_SUCCESS_STYLE if success else TEST_FAILURE_STYLE
+        )
+
     def _on_test_connection(self) -> None:
         profile = self._selected_profile()
         if profile is None:
@@ -992,12 +1002,13 @@ class MainWindow(QMainWindow):
         try:
             executable = self._test_executable_resolver(profile.kind)
         except ExecutableNotFoundError as exc:
-            self._test_connection_result.setText(_("✗ {error}").format(error=exc))
+            self._set_test_connection_result(_("✗ {error}").format(error=exc), success=False)
             return
 
         command = build_test_command(executable, profile)
         self._test_connection_button.setEnabled(False)
         self._test_connection_button.setText(_("Testing…"))
+        self._test_connection_button.setStyleSheet("")
         self._test_connection_result.setText("")
         try:
             result = subprocess.run(  # noqa: S603
@@ -1007,17 +1018,21 @@ class MainWindow(QMainWindow):
                 timeout=5,
             )
         except subprocess.TimeoutExpired:
-            self._test_connection_result.setText(_("✗ Timed out (no response from port)"))
+            self._set_test_connection_result(
+                _("✗ Timed out (no response from port)"), success=False
+            )
         except OSError as exc:
-            self._test_connection_result.setText(_("✗ Couldn't run: {error}").format(error=exc))
+            self._set_test_connection_result(
+                _("✗ Couldn't run: {error}").format(error=exc), success=False
+            )
         else:
             output = (result.stdout or result.stderr).strip()
             if result.returncode == 0 and output:
                 message = _("✓ Response: {output}").format(output=output)
-                self._test_connection_result.setText(message)
+                self._set_test_connection_result(message, success=True)
             else:
-                self._test_connection_result.setText(
-                    _("✗ {output}").format(output=output or _("Error"))
+                self._set_test_connection_result(
+                    _("✗ {output}").format(output=output or _("Error")), success=False
                 )
         finally:
             self._test_connection_button.setEnabled(True)
