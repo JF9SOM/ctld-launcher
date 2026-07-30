@@ -5,9 +5,10 @@ import shlex
 import subprocess
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Property, QPropertyAnimation, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -53,6 +54,7 @@ BAUD_RATES = ["1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200
 
 RUNNING_COLOR = QColor("#1D9E75")
 STOPPED_COLOR = QColor("#888780")
+FAILURE_COLOR = QColor("#D9534F")
 
 TEST_SUCCESS_STYLE = "background-color: #1D9E75; color: white;"
 TEST_FAILURE_STYLE = "background-color: #D9534F; color: white;"
@@ -107,6 +109,94 @@ def status_dot_icon(running: bool) -> QIcon:
     return QIcon(pixmap)
 
 
+class ToggleSwitch(QAbstractButton):
+    """A green(ON)/red(OFF) slide toggle with the state spelled out in text.
+
+    Used instead of a QCheckBox for "start this profile automatically when
+    the app launches", sitting on the right of each profile's row in the
+    sidebar list — a plain square checkbox there read as a "select this
+    profile to delete" checkbox to at least one real user, since it sat
+    directly above the "Remove" button. A visibly different control shape
+    avoids that reading.
+    """
+
+    _TRACK_WIDTH = 52
+    _TRACK_HEIGHT = 22
+    _KNOB_MARGIN = 2
+    _KNOB_SIZE = _TRACK_HEIGHT - 2 * _KNOB_MARGIN
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(self._TRACK_WIDTH, self._TRACK_HEIGHT)
+        self._knob_x = float(self._KNOB_MARGIN)
+        self._animation = QPropertyAnimation(self, b"knob_x", self)
+        self._animation.setDuration(120)
+        self.toggled.connect(self._animate_to_state)
+
+    def _end_knob_x(self, checked: bool) -> float:
+        if checked:
+            return float(self._TRACK_WIDTH - self._KNOB_MARGIN - self._KNOB_SIZE)
+        return float(self._KNOB_MARGIN)
+
+    def _animate_to_state(self, checked: bool) -> None:
+        self._animation.stop()
+        self._animation.setStartValue(self._knob_x)
+        self._animation.setEndValue(self._end_knob_x(checked))
+        self._animation.start()
+
+    def _get_knob_x(self) -> float:
+        return self._knob_x
+
+    def _set_knob_x(self, value: float) -> None:
+        self._knob_x = value
+        self.update()
+
+    knob_x = Property(float, _get_knob_x, _set_knob_x)
+
+    def setChecked(self, checked: bool) -> None:  # noqa: N802 (Qt override)
+        super().setChecked(checked)
+        self._animation.stop()
+        self._knob_x = self._end_knob_x(checked)
+        self.update()
+
+    def paintEvent(self, event: object) -> None:  # noqa: ARG002 (Qt override)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        track_color = RUNNING_COLOR if self.isChecked() else FAILURE_COLOR
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(track_color)
+        radius = self._TRACK_HEIGHT / 2
+        painter.drawRoundedRect(QRectF(0, 0, self._TRACK_WIDTH, self._TRACK_HEIGHT), radius, radius)
+
+        font = painter.font()
+        font.setPixelSize(9)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QColor("white"))
+        label_width = self._TRACK_WIDTH - self._KNOB_SIZE - self._KNOB_MARGIN
+        if self.isChecked():
+            label_rect = QRectF(4, 0, label_width, self._TRACK_HEIGHT)
+            painter.drawText(
+                label_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), "ON"
+            )
+        else:
+            label_rect = QRectF(
+                self._TRACK_WIDTH - label_width - 4, 0, label_width, self._TRACK_HEIGHT
+            )
+            painter.drawText(
+                label_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight), "OFF"
+            )
+
+        painter.setBrush(QColor("white"))
+        painter.drawEllipse(
+            QRectF(self._knob_x, self._KNOB_MARGIN, self._KNOB_SIZE, self._KNOB_SIZE)
+        )
+        painter.end()
+
+
 def _set_combo_text(combo: QComboBox, value: str) -> None:
     index = combo.findText(value)
     combo.setCurrentIndex(index if index >= 0 else 0)
@@ -159,7 +249,7 @@ class MainWindow(QMainWindow):
         self._profiles: list[Profile] = self._store.load()
         self._processes: dict[str, CtldProcess] = {}
         self._sidebar_name_labels: dict[str, QLabel] = {}
-        self._sidebar_autostart_checkboxes: dict[str, QCheckBox] = {}
+        self._sidebar_autostart_toggles: dict[str, ToggleSwitch] = {}
         self._executable_resolver = executable_resolver
         self._test_executable_resolver = test_executable_resolver
         self._autostart = autostart_backend
@@ -233,7 +323,7 @@ class MainWindow(QMainWindow):
         self._autostart_checkbox.setToolTip(
             _(
                 "Starts this app itself in the tray at login. To also start individual "
-                "profiles automatically, enable the checkbox next to each profile in "
+                "profiles automatically, enable the toggle next to each profile in "
                 "the list on the left."
             )
         )
@@ -555,29 +645,29 @@ class MainWindow(QMainWindow):
             return None
         return self._find_profile(self._current_id)
 
-    def _build_sidebar_row_widget(self, profile: Profile) -> tuple[QWidget, QLabel, QCheckBox]:
+    def _build_sidebar_row_widget(self, profile: Profile) -> tuple[QWidget, QLabel, ToggleSwitch]:
         row_widget = QWidget()
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(4, 2, 4, 2)
         name_label = QLabel(profile.name)
         row_layout.addWidget(name_label, stretch=1)
-        checkbox = QCheckBox()
-        checkbox.setToolTip(_("Start this profile automatically when the app launches"))
-        checkbox.setChecked(profile.auto_start)
-        checkbox.toggled.connect(functools.partial(self._on_profile_autostart_toggled, profile.id))
-        row_layout.addWidget(checkbox)
-        return row_widget, name_label, checkbox
+        toggle = ToggleSwitch()
+        toggle.setToolTip(_("Start this profile automatically when the app launches"))
+        toggle.setChecked(profile.auto_start)
+        toggle.toggled.connect(functools.partial(self._on_profile_autostart_toggled, profile.id))
+        row_layout.addWidget(toggle)
+        return row_widget, name_label, toggle
 
     def _add_sidebar_item(self, profile: Profile) -> None:
         item = QListWidgetItem()
         item.setIcon(status_dot_icon(self.is_running(profile.id)))
         item.setData(Qt.ItemDataRole.UserRole, profile.id)
         self._list.addItem(item)
-        row_widget, name_label, checkbox = self._build_sidebar_row_widget(profile)
+        row_widget, name_label, toggle = self._build_sidebar_row_widget(profile)
         item.setSizeHint(row_widget.sizeHint())
         self._list.setItemWidget(item, row_widget)
         self._sidebar_name_labels[profile.id] = name_label
-        self._sidebar_autostart_checkboxes[profile.id] = checkbox
+        self._sidebar_autostart_toggles[profile.id] = toggle
 
     def _refresh_sidebar_item(self, profile: Profile) -> None:
         for row in range(self._list.count()):
@@ -587,11 +677,11 @@ class MainWindow(QMainWindow):
                 label = self._sidebar_name_labels.get(profile.id)
                 if label is not None:
                     label.setText(profile.name)
-                checkbox = self._sidebar_autostart_checkboxes.get(profile.id)
-                if checkbox is not None:
-                    checkbox.blockSignals(True)
-                    checkbox.setChecked(profile.auto_start)
-                    checkbox.blockSignals(False)
+                toggle = self._sidebar_autostart_toggles.get(profile.id)
+                if toggle is not None:
+                    toggle.blockSignals(True)
+                    toggle.setChecked(profile.auto_start)
+                    toggle.blockSignals(False)
                 return
 
     def _on_profile_autostart_toggled(self, profile_id: str, checked: bool) -> None:
@@ -627,7 +717,7 @@ class MainWindow(QMainWindow):
             self._list.removeItemWidget(item)
         self._list.takeItem(row)
         self._sidebar_name_labels.pop(profile.id, None)
-        self._sidebar_autostart_checkboxes.pop(profile.id, None)
+        self._sidebar_autostart_toggles.pop(profile.id, None)
 
     def _on_autostart_toggled(self, checked: bool) -> None:
         try:
@@ -671,12 +761,12 @@ class MainWindow(QMainWindow):
         self._autostart_checkbox.setToolTip(
             _(
                 "Starts this app itself in the tray at login. To also start individual "
-                "profiles automatically, enable the checkbox next to each profile in "
+                "profiles automatically, enable the toggle next to each profile in "
                 "the list on the left."
             )
         )
-        for checkbox in self._sidebar_autostart_checkboxes.values():
-            checkbox.setToolTip(_("Start this profile automatically when the app launches"))
+        for toggle in self._sidebar_autostart_toggles.values():
+            toggle.setToolTip(_("Start this profile automatically when the app launches"))
         self._minimize_button.setText(_("Minimize to tray"))
         self._minimize_button.setToolTip(
             _(

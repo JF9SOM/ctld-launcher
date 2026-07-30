@@ -151,7 +151,7 @@ def test_profile_autostart_checkbox_persists(tmp_path, qtbot) -> None:  # type: 
     profile = window.profiles[0]
     assert profile.auto_start is False
 
-    checkbox = window._sidebar_autostart_checkboxes[profile.id]
+    checkbox = window._sidebar_autostart_toggles[profile.id]
     checkbox.setChecked(True)
     assert profile.auto_start is True
 
@@ -166,18 +166,18 @@ def test_sidebar_autostart_checkbox_reflects_existing_profile_state(tmp_path, qt
     profile.auto_start = True
     window._refresh_sidebar_item(profile)
 
-    assert window._sidebar_autostart_checkboxes[profile.id].isChecked() is True
+    assert window._sidebar_autostart_toggles[profile.id].isChecked() is True
 
 
 def test_sidebar_autostart_checkbox_removed_when_profile_removed(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
     window = _make_window(tmp_path, qtbot)
     window._add_profile(ProfileKind.RIG)
     profile_id = window.profiles[0].id
-    assert profile_id in window._sidebar_autostart_checkboxes
+    assert profile_id in window._sidebar_autostart_toggles
 
     window._remove_selected()
 
-    assert profile_id not in window._sidebar_autostart_checkboxes
+    assert profile_id not in window._sidebar_autostart_toggles
 
 
 def test_start_autostart_profiles_starts_only_flagged_ones(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
