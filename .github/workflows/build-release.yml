@@ -22,9 +22,8 @@ on:
           - macos
           - all
       hamlib_version:
-        description: "hamlib-bundle version to fetch"
+        description: "hamlib-bundle version to fetch (defaults to .github/hamlib-version.txt)"
         required: false
-        default: "4.7.1"
 
 jobs:
   build-linux:
@@ -37,6 +36,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine Hamlib version
+        id: hamlib_ver
+        run: |
+          version="${{ github.event.inputs.hamlib_version }}"
+          if [ -z "$version" ]; then
+            version="$(cat .github/hamlib-version.txt)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v5
         with:
@@ -53,7 +61,7 @@ jobs:
       - name: Download hamlib-bundle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HAMLIB_VER: ${{ github.event.inputs.hamlib_version || '4.7.1' }}
+          HAMLIB_VER: ${{ steps.hamlib_ver.outputs.version }}
         run: |
           mkdir -p hamlib-bundle
           gh release download hamlib-bundle \
@@ -131,7 +139,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $hamlibVer = "${{ github.event.inputs.hamlib_version }}"
-          if (-not $hamlibVer) { $hamlibVer = "4.7.1" }
+          if (-not $hamlibVer) { $hamlibVer = (Get-Content .github\hamlib-version.txt -Raw).Trim() }
           New-Item -ItemType Directory -Force -Path hamlib-bundle | Out-Null
           gh release download hamlib-bundle `
             --repo "${{ github.repository }}" `
@@ -206,6 +214,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Determine Hamlib version
+        id: hamlib_ver
+        run: |
+          version="${{ github.event.inputs.hamlib_version }}"
+          if [ -z "$version" ]; then
+            version="$(cat .github/hamlib-version.txt)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -216,7 +233,7 @@ jobs:
       - name: Download hamlib-bundle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HAMLIB_VER: ${{ github.event.inputs.hamlib_version || '4.7.1' }}
+          HAMLIB_VER: ${{ steps.hamlib_ver.outputs.version }}
         run: |
           ARCH=$(uname -m)
           mkdir -p hamlib-bundle

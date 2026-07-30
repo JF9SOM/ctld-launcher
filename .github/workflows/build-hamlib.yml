@@ -22,12 +22,18 @@ on:
   workflow_dispatch:
     inputs:
       hamlib_version:
-        description: 'Hamlib version to build'
+        description: 'Hamlib version to build (defaults to .github/hamlib-version.txt)'
         required: false
-        default: '4.7.1'
-
-env:
-  HAMLIB_VERSION: ${{ github.event.inputs.hamlib_version || '4.7.1' }}
+  workflow_call:
+    # Lets check-hamlib-version.yml build a candidate bundle for a newer
+    # Hamlib release without needing a PAT: workflow_call is a direct
+    # "call", not an event, so it isn't subject to the default GITHUB_TOKEN's
+    # restriction on triggering other workflows via workflow_dispatch.
+    inputs:
+      hamlib_version:
+        description: 'Hamlib version to build'
+        required: true
+        type: string
 
 jobs:
   # ------------------------------------------------------------------ #
@@ -40,6 +46,16 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine Hamlib version
+        id: hamlib_ver
+        shell: bash
+        run: |
+          version="${{ inputs.hamlib_version || github.event.inputs.hamlib_version }}"
+          if [ -z "$version" ]; then
+            version="$(cat .github/hamlib-version.txt)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v5
         with:
@@ -54,6 +70,8 @@ jobs:
             binutils coreutils patchelf
 
       - name: Build Hamlib from source
+        env:
+          HAMLIB_VERSION: ${{ steps.hamlib_ver.outputs.version }}
         run: |
           HAMLIB_VER="${HAMLIB_VERSION}"
           PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
@@ -182,12 +200,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Determine Hamlib version
+        id: hamlib_ver
+        shell: bash
+        run: |
+          version="${{ inputs.hamlib_version || github.event.inputs.hamlib_version }}"
+          if [ -z "$version" ]; then
+            version="$(cat .github/hamlib-version.txt)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Build Hamlib Python binding (MinGW) and portable package
         shell: pwsh
+        env:
+          HAMLIB_VERSION: ${{ steps.hamlib_ver.outputs.version }}
         run: |
           $HAMLIB_VER = $env:HAMLIB_VERSION
           $PYTAG = python -c "import sys; print(f'py{sys.version_info.major}{sys.version_info.minor}')"
@@ -325,11 +355,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Determine Hamlib version
+        id: hamlib_ver
+        shell: bash
+        run: |
+          version="${{ inputs.hamlib_version || github.event.inputs.hamlib_version }}"
+          if [ -z "$version" ]; then
+            version="$(cat .github/hamlib-version.txt)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Build Hamlib from source
+        env:
+          HAMLIB_VERSION: ${{ steps.hamlib_ver.outputs.version }}
         run: |
           brew install autoconf automake libtool pkg-config libusb dylibbundler swig
 

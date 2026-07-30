@@ -73,11 +73,32 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
     - プロファイル一覧の各行右端の`ToggleSwitch`(`ui/main_window.py`のカスタムウィジェット、`_sidebar_autostart_toggles`): アプリ起動時にそのプロファイルも起動。当初はフォーム上部に「自動起動」という名前付きQCheckBoxとして存在していたが、(1) 1プロファイルずつフォームを開かないと状態を確認できない、(2) 「自動起動」という単語がサイドバー①と衝突する、という2つの理由で一覧行に移動した。さらに実機テストで「四角いチェックボックスだと、すぐ下の「削除」ボタンと並んで見えて、削除対象を選ぶチェックボックスと誤解しやすい」という指摘を受け、QCheckBoxではなくON(緑)/OFF(赤)を文字で明示する自前描画のスライドトグル(`ToggleSwitch`、`QPropertyAnimation`でノブをアニメーション)に変更した。
     - フォーム接続欄「USB接続時にこのプロファイルを自動起動・切断時に自動停止」: 主語(このプロファイルを)と起動・停止の両方を明記し、「(ソフト自体が)USB接続で自動起動する」という誤読を防いでいる。
 
+## アプリ自身の自動更新チェック
+
+- `core/app_update.py` — 姉妹プロジェクトFBSAT59の`ui/app_update_dialog.py`(実際にAppImage/NSIS/dmgの自動更新が動作している実績あり)を土台に、ctld-launcher向けに移植したもの。
+  - **チェック**: `main.py`の起動処理から`MainWindow.check_for_updates()`を1回呼び出し、バックグラウンドスレッド(`UpdateCheckWorker`)でGitHub Releases APIを問い合わせる。失敗(オフライン等)や既に最新の場合は何も表示せず静かに終了する。純粋関数`fetch_latest_release()`/`is_newer_version()`/`asset_name()`はQt非依存で単体テスト可能(`tests/test_app_update.py`)。
+  - **UI**: サイドバー左上、アプリバージョン表示のすぐ下にHamlibバージョン(`bundled_hamlib_version()`、`hamlib-bundle/version.txt`を読むだけで追加のビルド対応不要)、さらにその下に新バージョンがあるときだけ「↑ vX.Y.Zが利用可能です」というクリック可能な緑色のリンク風ボタン(`QToolButton`)を表示する。
+  - **クリック時の動作**(確認ダイアログの後、`UpdateInstallWorker`がダウンロード+インストール):
+    - Linux(AppImage): 実行中のファイルをその場でatomicに置き換え(Linuxは実行中でもファイル置き換えが可能)。
+    - macOS(dmg): マウントして`.app`を、現在実際に動いている`.app`の場所(`sys.executable`から逆算、`/Applications`固定ではない)にコピーで上書き。
+    - Windows(.exe): `ShellExecuteW`でUACのプロンプトを出しつつNSISインストーラーを起動(`/S`サイレントは使わない — 進行状況が見えないと不安になるとの判断、FBSAT59と同じ方針)。
+  - **再起動は必ず確認を挟む(自動では再起動しない)**: このアプリは`rigctld`/`rotctld`という常時稼働のバックグラウンドプロセスを管理しており、無条件に自動再起動すると、ユーザーが交信中・ログ取得中のセッションを黙って切断してしまう恐れがあるため。Linux/macOSは「今すぐ再起動」「後で」を選べる確認ダイアログ、Windowsは既にインストーラーが起動済みでファイルロック解除のため即座に閉じる必要があるので「閉じる」の一択(`_on_update_install_finished()`の`outcome`引数で分岐: `"restart_ready"` vs `"installer_launched"`)。「後で」を選んでも更新ファイル自体は適用済みなので、次回の手動終了・起動で自動的に新バージョンになる。
+
+## Hamlibバージョンの追随(段階的な仕組み、v1時点では検知+ビルドまでを自動化)
+
+アプリ自身の更新とは別に、**バンドルするHamlib自体の最新版追随**も検討したが、以下の理由から「検知してビルドしておく」ところまでを自動化し、「実際のリリースに採用する」判断は人間が行う、という二段階に分けている。
+
+- **リスク**: Hamlibの新バージョンで`RIG_MODEL_*`番号が変わると、保存済みプロファイルの`model_id`が別機種を指してしまう恐れがある(黙って起きる不具合)。ビルド手順(SWIGバインディング生成、RUNPATH修正等)がHamlib側の変更で壊れる可能性もある。過去に`RIG_MODEL_ARMSTRONG`のクラッシュを実機検証で発見した経緯もあり(ステップ5参照)、新バージョンを無条件に信用しない方針。
+- **`.github/hamlib-version.txt`**: 「実際に採用しているHamlibバージョン」の単一の情報源。`build-hamlib.yml`と`build-release.yml`はどちらもこのファイルを読んで既定値とする(以前は`4.7.1`という文字列が2つのワークフローに別々にハードコードされていた)。
+- **`.github/workflows/check-hamlib-version.yml`**(週次cron + 手動実行): Hamlib本家の最新リリースをAPIで確認し、`hamlib-version.txt`より新しければ、`build-hamlib.yml`を`workflow_call`(`workflow_dispatch`ではなくこちらを使うのは、既定の`GITHUB_TOKEN`では他ワークフローへの`workflow_dispatch`起動が制限されているため、追加のPAT無しで済むように)で起動して新バージョンをビルド・`hamlib-bundle`プレリリースに追加し、GitHub Issueを自動作成して人間の確認を促す(既に同バージョンのIssueが開いていれば重複作成しない)。この時点では現行リリースの`build-release.yml`が使うバージョンには一切影響しない(ファイル名にバージョン番号が入っているので共存できる)。
+- **採用手順(人間が行う)**: Issueに気づいたら`build-release.yml`を`workflow_dispatch`の`hamlib_version`入力で手動実行してテストビルドを作成 → 実機で動作確認(4.7.1のときと同様) → 問題なければ`.github/hamlib-version.txt`を書き換えるだけの小さなコミットを作成。
+
 ## CI
 
 - `.github/workflows/ci.yml` — push/PR(mainブランチ)ごとにruff(lint+format check)/mypy/pytestを実行。Hamlibのインストールは不要(テストは`_fake_ctld.py`/`_fake_hamlib_list.py`等のフェイクスクリプトで完結し、実バインディングに依存しない)。
-- `.github/workflows/build-hamlib.yml` — hamlib-bundleの生成(手動起動)。
+- `.github/workflows/build-hamlib.yml` — hamlib-bundleの生成(手動起動、または`check-hamlib-version.yml`から`workflow_call`で起動)。
 - `.github/workflows/build-release.yml` — アプリ本体のパッケージング・リリース(`v*`タグpush、または`workflow_dispatch`)。
+- `.github/workflows/check-hamlib-version.yml` — Hamlib新バージョンの検知(週次cron、詳細は上記「Hamlibバージョンの追随」参照)。
 
 ## 既知の未実装事項
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import shlex
 import subprocess
+import sys
 from collections.abc import Callable
 
 from PySide6.QtCore import Property, QPropertyAnimation, QRectF, Qt, QTimer, Signal
@@ -34,9 +35,16 @@ from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
 from ctld_launcher.core import autostart as autostart_module
+from ctld_launcher.core.app_update import (
+    GITHUB_RELEASES,
+    UpdateCheckWorker,
+    UpdateInstallWorker,
+    is_newer_version,
+)
 from ctld_launcher.core.autostart import AutostartBackend, AutostartError
 from ctld_launcher.core.hamlib_locator import (
     ExecutableNotFoundError,
+    bundled_hamlib_version,
     find_executable,
     find_test_executable,
 )
@@ -257,6 +265,10 @@ class MainWindow(QMainWindow):
         self._usb_tracker = UsbHotplugTracker()
         self._current_id: str | None = None
         self._updating_form = False
+        self._update_latest_version: str | None = None
+        self._update_download_url: str | None = None
+        self._update_check_worker: UpdateCheckWorker | None = None
+        self._update_install_worker: UpdateInstallWorker | None = None
 
         self._log_line.connect(self._on_log_line)
         self._process_exited.connect(self._on_process_exited)
@@ -288,6 +300,22 @@ class MainWindow(QMainWindow):
         self._version_label = QLabel(f"ctld-launcher v{get_version()}")
         self._version_label.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(self._version_label)
+
+        hamlib_version = bundled_hamlib_version()
+        self._hamlib_version_label = QLabel(f"Hamlib v{hamlib_version}" if hamlib_version else "")
+        self._hamlib_version_label.setStyleSheet("color: gray; font-size: 10px;")
+        self._hamlib_version_label.setVisible(hamlib_version is not None)
+        layout.addWidget(self._hamlib_version_label)
+
+        self._update_button = QToolButton()
+        self._update_button.setStyleSheet(
+            "QToolButton { color: #1D9E75; font-size: 10px; border: none; "
+            "background: transparent; padding: 0; }"
+        )
+        self._update_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_button.setVisible(False)
+        self._update_button.clicked.connect(self._on_update_button_clicked)
+        layout.addWidget(self._update_button)
 
         # Language names are deliberately NOT translated via _() — each
         # option must always read in its own language, or a user who picks
@@ -732,6 +760,9 @@ class MainWindow(QMainWindow):
             self._autostart_checkbox.blockSignals(False)
 
     def _on_quit_clicked(self) -> None:
+        self._quit_app()
+
+    def _quit_app(self) -> None:
         app = QApplication.instance()
         if app is not None:
             app.quit()
@@ -754,6 +785,14 @@ class MainWindow(QMainWindow):
         selection from the profile's actual stored values, so it isn't
         lost when e.g. "(Not set)"/"(未指定)" changes text.
         """
+        if (
+            self._update_download_url
+            and self._update_latest_version
+            and self._update_button.isEnabled()
+        ):
+            self._update_button.setText(
+                _("↑ Update to v{ver} available").format(ver=self._update_latest_version)
+            )
         self._add_rig_button.setText(_("+ Rig"))
         self._add_rotator_button.setText(_("+ Rotator"))
         self._remove_button.setText(_("Remove"))
@@ -1259,6 +1298,101 @@ class MainWindow(QMainWindow):
     def stop_all(self) -> None:
         for profile_id in list(self._processes):
             self._stop_profile(profile_id)
+
+    # ------------------------------------------------------------------ #
+    # App self-update (see core/app_update.py)
+    # ------------------------------------------------------------------ #
+    def check_for_updates(self) -> None:
+        """Kick off a background GitHub Releases check. Silent on failure
+        or when already up to date; called once from main.py after startup
+        so a slow/failed network check never delays showing the window.
+        """
+        worker = UpdateCheckWorker(self)
+        worker.result.connect(self._on_update_check_result)
+        worker.start()
+        self._update_check_worker = worker
+
+    def _on_update_check_result(self, version: str, url: str) -> None:
+        if not is_newer_version(version, get_version()):
+            return
+        self._update_latest_version = version
+        self._update_download_url = url
+        self._update_button.setText(_("↑ Update to v{ver} available").format(ver=version))
+        self._update_button.setEnabled(True)
+        self._update_button.setVisible(True)
+
+    def _on_update_button_clicked(self) -> None:
+        if self._update_download_url is None or self._update_latest_version is None:
+            return
+        answer = QMessageBox.question(
+            self,
+            _("Update ctld-launcher"),
+            _(
+                "Download and install ctld-launcher v{ver} now? The app will "
+                "need to restart to finish."
+            ).format(ver=self._update_latest_version),
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._update_button.setEnabled(False)
+        self._update_button.setText(_("Downloading…"))
+        worker = UpdateInstallWorker(self._update_download_url, self._update_latest_version)
+        worker.progress.connect(self._on_update_install_progress)
+        worker.finished.connect(self._on_update_install_finished)
+        worker.start()
+        self._update_install_worker = worker
+
+    def _on_update_install_progress(self, message: str) -> None:
+        self._update_button.setText(message)
+
+    def _on_update_install_finished(self, success: bool, outcome: str, message: str) -> None:
+        if not success:
+            self._update_button.setEnabled(True)
+            self._update_button.setText(
+                _("↑ Update to v{ver} available").format(ver=self._update_latest_version)
+            )
+            QMessageBox.warning(
+                self,
+                _("Update failed"),
+                _(
+                    "Couldn't install the update: {error}\n\nYou can also download "
+                    "it manually from {url}"
+                ).format(error=message, url=GITHUB_RELEASES),
+            )
+            return
+
+        self._update_button.setText(_("✓ Updated — restart to finish"))
+
+        if outcome == "installer_launched":
+            QMessageBox.information(
+                self,
+                _("Update ready"),
+                _(
+                    "The installer has started. ctld-launcher needs to close now "
+                    "so it can finish installing."
+                ),
+            )
+            self._quit_app()
+            return
+
+        answer = QMessageBox.question(
+            self,
+            _("Update ready"),
+            _(
+                "The update is ready. Restart now to finish? Any running "
+                "profiles will be stopped.\n(You can also restart later — the "
+                "update is already applied.)"
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self._restart_app()
+
+    def _restart_app(self) -> None:
+        subprocess.Popen([sys.executable])  # noqa: S603
+        self._quit_app()
 
     # ------------------------------------------------------------------ #
     # USB hotplug (see core/usb_watch.py for why this is app-level polling

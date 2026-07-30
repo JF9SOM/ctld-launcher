@@ -37,6 +37,7 @@ def main() -> None:
     _tray = TrayIcon(window, app)  # kept alive for the app's lifetime
     app.aboutToQuit.connect(window.stop_all)
     window.start_autostart_profiles()
+    window.check_for_updates()
 
     if should_show_on_startup(sys.argv) or not QSystemTrayIcon.isSystemTrayAvailable():
         window.show()

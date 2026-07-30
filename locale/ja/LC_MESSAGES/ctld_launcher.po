@@ -157,6 +157,46 @@ msgstr "新しいローテーター"
 msgid "Couldn't set autostart"
 msgstr "自動起動の設定に失敗しました"
 
+msgid "↑ Update to v{ver} available"
+msgstr "↑ v{ver}が利用可能です"
+
+msgid "Update ctld-launcher"
+msgstr "ctld-launcherを更新"
+
+msgid "Download and install ctld-launcher v{ver} now? The app will need to restart to finish."
+msgstr "ctld-launcher v{ver}を今すぐダウンロードしてインストールしますか？完了にはアプリの再起動が必要です。"
+
+msgid "Downloading…"
+msgstr "ダウンロード中…"
+
+msgid "Update failed"
+msgstr "更新に失敗しました"
+
+msgid ""
+"Couldn't install the update: {error}\n"
+"\n"
+"You can also download it manually from {url}"
+msgstr ""
+"更新をインストールできませんでした: {error}\n"
+"\n"
+"{url} から手動でダウンロードすることもできます。"
+
+msgid "✓ Updated — restart to finish"
+msgstr "✓ 更新済み — 再起動して適用"
+
+msgid "Update ready"
+msgstr "更新の準備ができました"
+
+msgid "The installer has started. ctld-launcher needs to close now so it can finish installing."
+msgstr "インストーラーが起動しました。インストールを完了するには、ctld-launcherを今すぐ終了する必要があります。"
+
+msgid ""
+"The update is ready. Restart now to finish? Any running profiles will be stopped.\n"
+"(You can also restart later — the update is already applied.)"
+msgstr ""
+"更新の準備ができました。今すぐ再起動して完了しますか？稼働中のプロファイルは停止します。\n"
+"(後で再起動することもできます — 更新自体は既に適用済みです。)"
+
 msgid "✗ {error}"
 msgstr "✗ {error}"
 
@@ -238,8 +278,8 @@ msgstr "無線機/ローテーターの機種を選択してください。"
 msgid "Select the serial port your rig/rotator is connected to."
 msgstr "無線機/ローテーターが接続されているシリアルポートを選択してください。"
 
-msgid "Starts this app itself in the tray at login. To also start individual profiles automatically, enable the checkbox next to each profile in the list on the left."
-msgstr "PCログイン時にこのアプリ自体をトレイに常駐起動します。個別のプロファイルも自動起動したい場合は、左の一覧の各プロファイル横のチェックボックスもオンにしてください。"
+msgid "Starts this app itself in the tray at login. To also start individual profiles automatically, enable the toggle next to each profile in the list on the left."
+msgstr "PCログイン時にこのアプリ自体をトレイに常駐起動します。個別のプロファイルも自動起動したい場合は、左の一覧の各プロファイル横のトグルもオンにしてください。"
 
 msgid "Usually fine left as \"(Not set)\". Only change if your rig/rotator's manual specifies a particular value."
 msgstr "通常は「(未指定)」のままで問題ありません。無線機/ローテーターの取扱説明書に指定がある場合のみ変更してください。"

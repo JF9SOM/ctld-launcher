@@ -59,6 +59,7 @@ Settings are saved automatically; there's no separate save button.
 - Launching the app (clicking its icon, or running `ctld-launcher`) normally opens the settings window right away. Only when launched automatically at login does it start minimized to the tray, without opening the window.
 - Closing the window doesn't quit the app — it stays running in the system tray (the "Minimize to tray" button at the bottom of the sidebar does the same thing). Left-click the tray icon to bring the settings window back; right-click it for a menu with per-profile start/stop, "Open settings…", and "Quit". To fully quit the app, use "Quit" from the tray menu, or the "Quit ctld-launcher" button at the bottom of the sidebar.
 - Use the combo box in the top-left to switch the display language between English and Japanese (no restart needed).
+- The bundled Hamlib version is shown just below the app version in the top-left. When a newer ctld-launcher release is available, a green "↑ Update to vX.Y.Z available" link appears below that — click it to download and install. You'll be asked to confirm the restart afterward (choose "later" if you don't want to interrupt currently-running profiles; the update is already applied, so it takes effect on your next manual restart either way).
 
 ## Development
 

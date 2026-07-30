@@ -72,3 +72,21 @@ def find_executable(kind: ProfileKind) -> str:
 def find_test_executable(kind: ProfileKind) -> str:
     """Resolve rigctl/rotctl — the one-shot CLI tool used for connection tests."""
     return _find(_TEST_TOOL_NAME[kind])
+
+
+def bundled_hamlib_version() -> str | None:
+    """Version of the bundled Hamlib, or None when unpackaged/not bundled.
+
+    build-hamlib.yml writes a plain "4.7.1"-style version.txt alongside the
+    hamlib-bundle executables, which ctld-launcher.spec already bundles
+    like any other file in that directory — no separate build step needed.
+    """
+    bundled_dir = bundled_hamlib_dir()
+    if bundled_dir is None:
+        return None
+    version_file = bundled_dir / "version.txt"
+    try:
+        text = version_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return text or None

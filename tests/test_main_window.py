@@ -425,3 +425,142 @@ def test_usb_hotplug_poll_starts_and_stops_profile_on_plug_unplug(tmp_path, qtbo
         qtbot.waitUntil(lambda: not window.is_running(profile.id), timeout=1000)
     finally:
         window.stop_all()
+
+
+def test_hamlib_version_label_hidden_when_not_bundled(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    # isHidden() (not isVisible()) since the window isn't shown in this test.
+    window = _make_window(tmp_path, qtbot)
+    assert window._hamlib_version_label.isHidden() is True
+
+
+def test_update_button_hidden_by_default(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    assert window._update_button.isHidden() is True
+
+
+def test_update_check_result_shows_button_for_newer_version(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    from ctld_launcher.version import get_version
+
+    window = _make_window(tmp_path, qtbot)
+    current = get_version()
+    parts = current.split(".") if "." in current else ["0", "0", "0"]
+    newer = f"{int(parts[0]) + 1}.0.0"
+
+    window._on_update_check_result(newer, "https://example.com/asset")
+
+    assert window._update_button.isHidden() is False
+    assert newer in window._update_button.text()
+
+
+def test_update_check_result_ignores_older_or_equal_version(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    from ctld_launcher.version import get_version
+
+    window = _make_window(tmp_path, qtbot)
+
+    window._on_update_check_result(get_version(), "https://example.com/asset")
+
+    assert window._update_button.isHidden() is True
+
+
+def test_update_button_click_confirms_and_starts_download(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    from ctld_launcher.core import app_update
+
+    def fail_immediately(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise OSError("no network in tests")
+
+    monkeypatch.setattr(app_update.urllib.request, "urlretrieve", fail_immediately)
+
+    window = _make_window(tmp_path, qtbot)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    # The forced urlretrieve failure above means the worker's finished signal
+    # will take the failure path, which pops a warning dialog once the
+    # queued cross-thread signal is delivered (possibly not until qtbot's
+    # own teardown pumps the event loop) — must be mocked too, or that
+    # dialog's real .exec() hangs the test run.
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    window._on_update_button_clicked()
+
+    assert window._update_button.isEnabled() is False
+    assert "Downloading" in window._update_button.text()
+
+    worker = window._update_install_worker
+    assert worker is not None
+    assert worker.wait(3000) is True
+    qtbot.wait(50)
+
+
+def test_update_button_click_declined_does_not_start_download(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    window = _make_window(tmp_path, qtbot)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
+    window._on_update_button_clicked()
+
+    assert window._update_install_worker is None
+    assert window._update_button.isEnabled() is True
+
+
+def test_update_install_finished_failure_resets_button(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    window = _make_window(tmp_path, qtbot)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+    window._update_button.setEnabled(False)
+
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    window._on_update_install_finished(False, "", "connection refused")
+
+    assert window._update_button.isEnabled() is True
+    assert "9.9.9" in window._update_button.text()
+
+
+def test_update_restart_ready_restarts_on_confirm(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    window = _make_window(tmp_path, qtbot)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    restart_calls = []
+    monkeypatch.setattr(window, "_restart_app", lambda: restart_calls.append(True))
+
+    window._on_update_install_finished(True, "restart_ready", "")
+
+    assert restart_calls == [True]
+
+
+def test_update_restart_ready_stays_running_if_declined(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    window = _make_window(tmp_path, qtbot)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
+    restart_calls = []
+    monkeypatch.setattr(window, "_restart_app", lambda: restart_calls.append(True))
+
+    window._on_update_install_finished(True, "restart_ready", "")
+
+    assert restart_calls == []
+    assert "Updated" in window._update_button.text()
+
+
+def test_update_install_finished_installer_launched_quits(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    window = _make_window(tmp_path, qtbot)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    quit_calls = []
+    monkeypatch.setattr(window, "_quit_app", lambda: quit_calls.append(True))
+
+    window._on_update_install_finished(True, "installer_launched", "")
+
+    assert quit_calls == [True]

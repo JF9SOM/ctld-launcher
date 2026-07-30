@@ -1,0 +1,110 @@
+name: Check Hamlib Version
+
+# Weekly check for a newer Hamlib release than the one pinned in
+# .github/hamlib-version.txt. If one exists, builds a candidate
+# hamlib-bundle for it (via build-hamlib.yml) and opens a tracking issue —
+# but does NOT change what build-release.yml uses for real app releases.
+#
+# Deliberately two-stage/human-gated rather than fully automatic: a new
+# Hamlib release could renumber RIG_MODEL_* IDs (silently pointing saved
+# profiles at the wrong rig) or break the build in ways CI wouldn't catch.
+# See CLAUDE.md's "Hamlibバージョンの追随" section.
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Mondays 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Check for a newer Hamlib release
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    outputs:
+      newer_version: ${{ steps.decide.outputs.newer_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch Hamlib's latest release tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$(gh api repos/Hamlib/Hamlib/releases/latest --jq '.tag_name // empty')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether a build + issue is needed
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pinned="$(cat .github/hamlib-version.txt)"
+          latest="${{ steps.latest.outputs.tag }}"
+
+          if [ -z "$latest" ]; then
+            echo "::warning::Could not determine Hamlib's latest release tag; skipping."
+            echo "newer_version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$pinned" = "$latest" ]; then
+            echo "Already up to date ($pinned)."
+            echo "newer_version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Hamlib tags are plain dotted-numeric (e.g. "4.7.1") — sort -V
+          # (version sort) compares them correctly without a semver library.
+          highest=$(printf '%s\n%s\n' "$pinned" "$latest" | sort -V | tail -n1)
+          if [ "$highest" != "$latest" ]; then
+            echo "Pinned ($pinned) is already newer than or equal to $latest by version sort; nothing to do."
+            echo "newer_version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          open_count=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --search "in:title \"Hamlib ${latest} is available\"" \
+            --json number --jq 'length')
+          if [ "$open_count" != "0" ]; then
+            echo "An open issue for Hamlib $latest already exists; not rebuilding."
+            echo "newer_version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "newer_version=$latest" >> "$GITHUB_OUTPUT"
+
+  build-candidate:
+    name: Build candidate Hamlib bundle
+    needs: check
+    if: needs.check.outputs.newer_version != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build-hamlib.yml
+    with:
+      hamlib_version: ${{ needs.check.outputs.newer_version }}
+
+  notify:
+    name: Open a tracking issue
+    needs: [check, build-candidate]
+    if: needs.check.outputs.newer_version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check.outputs.newer_version }}
+        run: |
+          body=$(printf '%s\n\n%s\n\n%s\n%s\n%s\n%s\n' \
+            "Hamlib ${VERSION} has been released upstream, and a candidate bundle has already been built (see the hamlib-bundle pre-release assets for this version)." \
+            "This does **not** affect the current app release — ctld-launcher still uses the version pinned in \`.github/hamlib-version.txt\`." \
+            "To adopt it:" \
+            "1. Run \`build-release.yml\` manually (workflow_dispatch) with \`hamlib_version: ${VERSION}\` to produce a test build." \
+            "2. Verify against real hardware, the same way 4.7.1 was originally verified (see CLAUDE.md)." \
+            "3. If it checks out, update \`.github/hamlib-version.txt\` to \`${VERSION}\` in a small commit.")
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Hamlib ${VERSION} is available" \
+            --body "$body"

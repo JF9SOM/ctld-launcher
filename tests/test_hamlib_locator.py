@@ -7,6 +7,7 @@ import pytest
 from ctld_launcher.core.hamlib_locator import (
     ExecutableNotFoundError,
     bundled_hamlib_dir,
+    bundled_hamlib_version,
     find_executable,
     find_test_executable,
 )
@@ -72,3 +73,23 @@ def test_find_test_executable_resolves_rigctl_and_rotctl(monkeypatch) -> None:  
 
     assert find_test_executable(ProfileKind.RIG) == "/usr/bin/rigctl"
     assert find_test_executable(ProfileKind.ROTATOR) == "/usr/bin/rotctl"
+
+
+def test_bundled_hamlib_version_none_when_not_frozen(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delattr(sys, "_MEIPASS", raising=False)
+    assert bundled_hamlib_version() is None
+
+
+def test_bundled_hamlib_version_none_when_version_file_missing(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    hamlib_dir = tmp_path / "hamlib"
+    hamlib_dir.mkdir()
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert bundled_hamlib_version() is None
+
+
+def test_bundled_hamlib_version_reads_file(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    hamlib_dir = tmp_path / "hamlib"
+    hamlib_dir.mkdir()
+    (hamlib_dir / "version.txt").write_text("4.7.1\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert bundled_hamlib_version() == "4.7.1"
