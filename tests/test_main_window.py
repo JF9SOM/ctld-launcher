@@ -438,26 +438,33 @@ def test_update_button_hidden_by_default(tmp_path, qtbot) -> None:  # type: igno
     assert window._update_button.isHidden() is True
 
 
-def test_update_check_result_shows_button_for_newer_version(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
-    from ctld_launcher.version import get_version
+def _mock_current_version(monkeypatch, version: str = "0.1.0") -> None:  # type: ignore[no-untyped-def]
+    # _on_update_check_result() compares against the real get_version(),
+    # which resolves via `git describe` / package metadata and can be a
+    # messy, unparseable dev string depending on the checkout (e.g. a
+    # shallow CI clone with no reachable tags) — is_newer_version() treats
+    # that as "never newer" by design, which would make these tests flaky
+    # across environments. Pin it to a known clean version instead.
+    from ctld_launcher.ui import main_window
 
+    monkeypatch.setattr(main_window, "get_version", lambda: version)
+
+
+def test_update_check_result_shows_button_for_newer_version(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _mock_current_version(monkeypatch)
     window = _make_window(tmp_path, qtbot)
-    current = get_version()
-    parts = current.split(".") if "." in current else ["0", "0", "0"]
-    newer = f"{int(parts[0]) + 1}.0.0"
 
-    window._on_update_check_result(newer, "https://example.com/asset")
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
 
     assert window._update_button.isHidden() is False
-    assert newer in window._update_button.text()
+    assert "9.9.9" in window._update_button.text()
 
 
-def test_update_check_result_ignores_older_or_equal_version(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
-    from ctld_launcher.version import get_version
-
+def test_update_check_result_ignores_older_or_equal_version(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _mock_current_version(monkeypatch, "5.0.0")
     window = _make_window(tmp_path, qtbot)
 
-    window._on_update_check_result(get_version(), "https://example.com/asset")
+    window._on_update_check_result("5.0.0", "https://example.com/asset")
 
     assert window._update_button.isHidden() is True
 
@@ -473,6 +480,7 @@ def test_update_button_click_confirms_and_starts_download(tmp_path, qtbot, monke
     monkeypatch.setattr(app_update.urllib.request, "urlretrieve", fail_immediately)
 
     window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
     window._on_update_check_result("9.9.9", "https://example.com/asset")
 
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
@@ -497,6 +505,7 @@ def test_update_button_click_declined_does_not_start_download(tmp_path, qtbot, m
     from PySide6.QtWidgets import QMessageBox
 
     window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
     window._on_update_check_result("9.9.9", "https://example.com/asset")
 
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
@@ -510,6 +519,7 @@ def test_update_install_finished_failure_resets_button(tmp_path, qtbot, monkeypa
     from PySide6.QtWidgets import QMessageBox
 
     window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
     window._on_update_check_result("9.9.9", "https://example.com/asset")
     window._update_button.setEnabled(False)
 
@@ -524,6 +534,7 @@ def test_update_restart_ready_restarts_on_confirm(tmp_path, qtbot, monkeypatch) 
     from PySide6.QtWidgets import QMessageBox
 
     window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
     window._on_update_check_result("9.9.9", "https://example.com/asset")
 
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
@@ -539,6 +550,7 @@ def test_update_restart_ready_stays_running_if_declined(tmp_path, qtbot, monkeyp
     from PySide6.QtWidgets import QMessageBox
 
     window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
     window._on_update_check_result("9.9.9", "https://example.com/asset")
 
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
@@ -555,6 +567,7 @@ def test_update_install_finished_installer_launched_quits(tmp_path, qtbot, monke
     from PySide6.QtWidgets import QMessageBox
 
     window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
     window._on_update_check_result("9.9.9", "https://example.com/asset")
 
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
