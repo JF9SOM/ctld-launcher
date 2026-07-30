@@ -41,7 +41,7 @@ msgid "Enter any name you like for this profile."
 msgstr "任意のプロファイル名を入力して下さい。"
 
 msgid "Start at login"
-msgstr "ログイン時に自動起動"
+msgstr "スタートアップ時に起動"
 
 msgid "Minimize to tray"
 msgstr "トレイに最小化"
@@ -54,9 +54,6 @@ msgstr "ctld-launcherを終了"
 
 msgid "Stops all running rigctld/rotctld processes and closes the app completely, including the tray icon."
 msgstr "稼働中のrigctld/rotctldをすべて停止し、トレイアイコンを含めてアプリを完全に終了します。"
-
-msgid "Auto-start"
-msgstr "自動起動"
 
 msgid "Start this profile automatically when the app launches"
 msgstr "アプリ起動時にこのプロファイルも自動的に起動する"
@@ -103,8 +100,8 @@ msgstr "速度"
 msgid "Must match the serial speed set on the radio itself, or the connection will fail."
 msgstr "無線機側で設定されているシリアルスピードに必ず合わせて下さい。"
 
-msgid "Auto-start when this USB device is connected"
-msgstr "このUSBデバイス接続時に自動起動"
+msgid "Auto-start/stop this profile with this USB device"
+msgstr "USB接続時にこのプロファイルを自動起動・切断時に自動停止"
 
 msgid "Plug in the device and select its port above first, then turn this on: ctld-launcher will remember that USB device and automatically start this profile whenever it's plugged in, and stop it when unplugged. Only works while ctld-launcher itself is running."
 msgstr "先にデバイスを接続し、上のポート欄でそのポートを選択してからオンにしてください。オンにすると、そのUSBデバイスを記憶し、以後は接続時に自動的にこのプロファイルを起動し、取り外すと自動的に停止します。ctld-launcher自体が起動している間のみ有効です。"
@@ -241,8 +238,8 @@ msgstr "無線機/ローテーターの機種を選択してください。"
 msgid "Select the serial port your rig/rotator is connected to."
 msgstr "無線機/ローテーターが接続されているシリアルポートを選択してください。"
 
-msgid "Starts this app itself in the tray at login. To also start individual profiles automatically, enable each profile's own \"Auto-start\" too."
-msgstr "PCログイン時にこのアプリ自体をトレイに常駐起動します。個別のプロファイルも自動起動したい場合は、各プロファイルの「自動起動」も別途オンにしてください。"
+msgid "Starts this app itself in the tray at login. To also start individual profiles automatically, enable the checkbox next to each profile in the list on the left."
+msgstr "PCログイン時にこのアプリ自体をトレイに常駐起動します。個別のプロファイルも自動起動したい場合は、左の一覧の各プロファイル横のチェックボックスもオンにしてください。"
 
 msgid "Usually fine left as \"(Not set)\". Only change if your rig/rotator's manual specifies a particular value."
 msgstr "通常は「(未指定)」のままで問題ありません。無線機/ローテーターの取扱説明書に指定がある場合のみ変更してください。"

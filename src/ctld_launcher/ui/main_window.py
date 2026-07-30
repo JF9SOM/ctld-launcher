@@ -155,6 +155,8 @@ class MainWindow(QMainWindow):
         self._store = store or ProfileStore()
         self._profiles: list[Profile] = self._store.load()
         self._processes: dict[str, CtldProcess] = {}
+        self._sidebar_name_labels: dict[str, QLabel] = {}
+        self._sidebar_autostart_checkboxes: dict[str, QCheckBox] = {}
         self._executable_resolver = executable_resolver
         self._test_executable_resolver = test_executable_resolver
         self._autostart = autostart_backend
@@ -228,7 +230,8 @@ class MainWindow(QMainWindow):
         self._autostart_checkbox.setToolTip(
             _(
                 "Starts this app itself in the tray at login. To also start individual "
-                'profiles automatically, enable each profile\'s own "Auto-start" too.'
+                "profiles automatically, enable the checkbox next to each profile in "
+                "the list on the left."
             )
         )
         self._autostart_checkbox.setEnabled(self._autostart.is_supported())
@@ -269,12 +272,6 @@ class MainWindow(QMainWindow):
         self._name_edit.setToolTip(_("Enter any name you like for this profile."))
         self._name_edit.editingFinished.connect(self._on_name_changed)
         header.addWidget(self._name_edit)
-        self._profile_autostart_checkbox = QCheckBox(_("Auto-start"))
-        self._profile_autostart_checkbox.setToolTip(
-            _("Start this profile automatically when the app launches")
-        )
-        self._profile_autostart_checkbox.toggled.connect(self._on_field_changed)
-        header.addWidget(self._profile_autostart_checkbox)
         self._status_label = QLabel()
         header.addWidget(self._status_label)
         layout.addLayout(header)
@@ -383,7 +380,9 @@ class MainWindow(QMainWindow):
         outer.addLayout(row)
 
         usb_row = QHBoxLayout()
-        self._usb_hotplug_checkbox = QCheckBox(_("Auto-start when this USB device is connected"))
+        self._usb_hotplug_checkbox = QCheckBox(
+            _("Auto-start/stop this profile with this USB device")
+        )
         self._usb_hotplug_checkbox.setToolTip(
             _(
                 "Plug in the device and select its port above first, then turn this "
@@ -553,18 +552,51 @@ class MainWindow(QMainWindow):
             return None
         return self._find_profile(self._current_id)
 
+    def _build_sidebar_row_widget(self, profile: Profile) -> tuple[QWidget, QLabel, QCheckBox]:
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(4, 2, 4, 2)
+        name_label = QLabel(profile.name)
+        row_layout.addWidget(name_label, stretch=1)
+        checkbox = QCheckBox()
+        checkbox.setToolTip(_("Start this profile automatically when the app launches"))
+        checkbox.setChecked(profile.auto_start)
+        checkbox.toggled.connect(functools.partial(self._on_profile_autostart_toggled, profile.id))
+        row_layout.addWidget(checkbox)
+        return row_widget, name_label, checkbox
+
     def _add_sidebar_item(self, profile: Profile) -> None:
-        item = QListWidgetItem(status_dot_icon(self.is_running(profile.id)), profile.name)
+        item = QListWidgetItem()
+        item.setIcon(status_dot_icon(self.is_running(profile.id)))
         item.setData(Qt.ItemDataRole.UserRole, profile.id)
         self._list.addItem(item)
+        row_widget, name_label, checkbox = self._build_sidebar_row_widget(profile)
+        item.setSizeHint(row_widget.sizeHint())
+        self._list.setItemWidget(item, row_widget)
+        self._sidebar_name_labels[profile.id] = name_label
+        self._sidebar_autostart_checkboxes[profile.id] = checkbox
 
     def _refresh_sidebar_item(self, profile: Profile) -> None:
         for row in range(self._list.count()):
             item = self._list.item(row)
             if item.data(Qt.ItemDataRole.UserRole) == profile.id:
                 item.setIcon(status_dot_icon(self.is_running(profile.id)))
-                item.setText(profile.name)
+                label = self._sidebar_name_labels.get(profile.id)
+                if label is not None:
+                    label.setText(profile.name)
+                checkbox = self._sidebar_autostart_checkboxes.get(profile.id)
+                if checkbox is not None:
+                    checkbox.blockSignals(True)
+                    checkbox.setChecked(profile.auto_start)
+                    checkbox.blockSignals(False)
                 return
+
+    def _on_profile_autostart_toggled(self, profile_id: str, checked: bool) -> None:
+        profile = self._find_profile(profile_id)
+        if profile is None:
+            return
+        profile.auto_start = checked
+        self._store.save(self._profiles)
 
     def _add_profile(self, kind: ProfileKind) -> None:
         model_id = default_model_id(kind)
@@ -587,7 +619,12 @@ class MainWindow(QMainWindow):
         self._store.save(self._profiles)
         self._refresh_usb_tracking()
         row = self._list.currentRow()
+        item = self._list.item(row)
+        if item is not None:
+            self._list.removeItemWidget(item)
         self._list.takeItem(row)
+        self._sidebar_name_labels.pop(profile.id, None)
+        self._sidebar_autostart_checkboxes.pop(profile.id, None)
 
     def _on_autostart_toggled(self, checked: bool) -> None:
         try:
@@ -631,9 +668,12 @@ class MainWindow(QMainWindow):
         self._autostart_checkbox.setToolTip(
             _(
                 "Starts this app itself in the tray at login. To also start individual "
-                'profiles automatically, enable each profile\'s own "Auto-start" too.'
+                "profiles automatically, enable the checkbox next to each profile in "
+                "the list on the left."
             )
         )
+        for checkbox in self._sidebar_autostart_checkboxes.values():
+            checkbox.setToolTip(_("Start this profile automatically when the app launches"))
         self._minimize_button.setText(_("Minimize to tray"))
         self._minimize_button.setToolTip(
             _(
@@ -650,10 +690,6 @@ class MainWindow(QMainWindow):
         )
 
         self._name_edit.setToolTip(_("Enter any name you like for this profile."))
-        self._profile_autostart_checkbox.setText(_("Auto-start"))
-        self._profile_autostart_checkbox.setToolTip(
-            _("Start this profile automatically when the app launches")
-        )
         self._command_label.setText(_("Command"))
         self._start_button.setText(_("Start"))
         self._stop_button.setText(_("Stop"))
@@ -689,7 +725,7 @@ class MainWindow(QMainWindow):
         self._baud_combo.setToolTip(
             _("Must match the serial speed set on the radio itself, or the connection will fail.")
         )
-        self._usb_hotplug_checkbox.setText(_("Auto-start when this USB device is connected"))
+        self._usb_hotplug_checkbox.setText(_("Auto-start/stop this profile with this USB device"))
         self._usb_hotplug_checkbox.setToolTip(
             _(
                 "Plug in the device and select its port above first, then turn this "
@@ -798,7 +834,6 @@ class MainWindow(QMainWindow):
     def _set_form_enabled(self, enabled: bool) -> None:
         for widget in (
             self._name_edit,
-            self._profile_autostart_checkbox,
             self._manufacturer_combo,
             self._model_combo,
             self._model_id_spin,
@@ -819,7 +854,6 @@ class MainWindow(QMainWindow):
         self._updating_form = True
         try:
             self._name_edit.setText(profile.name)
-            self._profile_autostart_checkbox.setChecked(profile.auto_start)
             self._test_connection_result.setText("")
 
             models = self._models_for_kind(profile.kind)
@@ -829,7 +863,9 @@ class MainWindow(QMainWindow):
             manufacturer = self._manufacturer_for_model(models, profile.model_id)
             if manufacturer is not None:
                 _set_combo_text(self._manufacturer_combo, manufacturer)
-            self._populate_model_combo(models, self._manufacturer_combo.currentText())
+            self._populate_model_combo(
+                models, self._manufacturer_combo.currentText(), profile.model_id
+            )
             self._model_id_spin.setValue(profile.model_id)
 
             if not self._port_combo.count():
@@ -894,13 +930,30 @@ class MainWindow(QMainWindow):
         return None
 
     def _populate_model_combo(
-        self, models: dict[str, list[tuple[int, str]]], manufacturer: str
+        self,
+        models: dict[str, list[tuple[int, str]]],
+        manufacturer: str,
+        model_id: int | None = None,
     ) -> None:
+        """Rebuild the model dropdown for `manufacturer`.
+
+        When `model_id` is given, the entry matching it is explicitly
+        selected — without this, Qt just defaults to index 0 on every
+        rebuild, so the displayed model name would drift away from the
+        profile's actual model_id (e.g. reverting to some other model)
+        every time the form is repopulated (profile reselect, language
+        switch, USB hotplug reconnect), even though model_id itself never
+        changed.
+        """
         self._model_combo.blockSignals(True)
         self._model_combo.clear()
-        for model_id, name in models.get(manufacturer, []):
-            self._model_combo.addItem(name, userData=model_id)
+        for mid, name in models.get(manufacturer, []):
+            self._model_combo.addItem(name, userData=mid)
         _refresh_combo_search(self._model_combo)
+        if model_id is not None:
+            index = self._model_combo.findData(model_id)
+            if index >= 0:
+                self._model_combo.setCurrentIndex(index)
         self._model_combo.blockSignals(False)
 
     def _on_manufacturer_changed(self) -> None:
@@ -997,7 +1050,6 @@ class MainWindow(QMainWindow):
         profile = self._selected_profile()
         if profile is None:
             return
-        profile.auto_start = self._profile_autostart_checkbox.isChecked()
         profile.model_id = self._model_id_spin.value()
         profile.port = self._port_combo.currentText()
         baud_text = self._baud_combo.currentText().strip()

@@ -21,6 +21,7 @@ current translation each time it's called, not once at import time.
 from __future__ import annotations
 
 import gettext
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -79,10 +80,44 @@ def get_language() -> str:
     return _current_lang
 
 
+def _macos_preferred_language() -> str | None:
+    """The user's top-preferred macOS UI language, or None if it can't be
+    determined.
+
+    QLocale.system() alone has been observed to report English on a Mac
+    whose system language is actually Japanese — plausibly because this
+    app is only ad-hoc signed (not notarized), which can affect how macOS
+    resolves an app's locale via Launch Services. `defaults read -g
+    AppleLanguages` queries the user's language preference list directly
+    and isn't affected by that.
+    """
+    try:
+        result = subprocess.run(  # noqa: S603, S607
+            ["defaults", "read", "-g", "AppleLanguages"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        candidate = line.strip().strip('",')
+        if candidate and candidate not in ("(", ")"):
+            return candidate
+    return None
+
+
 def detect_system_language() -> str:
     """Only Japanese is currently translated (see locale/ja/); everything
     else falls back to the English source strings.
     """
+    if sys.platform == "darwin":
+        preferred = _macos_preferred_language()
+        if preferred is not None:
+            return "ja" if preferred.startswith("ja") else "en"
+
     from PySide6.QtCore import QLocale
 
     if QLocale.system().name().startswith("ja"):

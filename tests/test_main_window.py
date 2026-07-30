@@ -8,6 +8,7 @@ from ctld_launcher.ui.main_window import MainWindow
 
 FAKE_CTLD = Path(__file__).parent / "_fake_ctld.py"
 FAKE_RIGCTL = Path(__file__).parent / "_fake_rigctl.py"
+FAKE_HAMLIB_LIST = Path(__file__).parent / "_fake_hamlib_list.py"
 
 
 def _fake_resolver(kind: ProfileKind) -> str:
@@ -150,11 +151,33 @@ def test_profile_autostart_checkbox_persists(tmp_path, qtbot) -> None:  # type: 
     profile = window.profiles[0]
     assert profile.auto_start is False
 
-    window._profile_autostart_checkbox.setChecked(True)
+    checkbox = window._sidebar_autostart_checkboxes[profile.id]
+    checkbox.setChecked(True)
     assert profile.auto_start is True
 
     store = ProfileStore(path=tmp_path / "profiles.json")
     assert store.load()[0].auto_start is True
+
+
+def test_sidebar_autostart_checkbox_reflects_existing_profile_state(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    profile.auto_start = True
+    window._refresh_sidebar_item(profile)
+
+    assert window._sidebar_autostart_checkboxes[profile.id].isChecked() is True
+
+
+def test_sidebar_autostart_checkbox_removed_when_profile_removed(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    profile_id = window.profiles[0].id
+    assert profile_id in window._sidebar_autostart_checkboxes
+
+    window._remove_selected()
+
+    assert profile_id not in window._sidebar_autostart_checkboxes
 
 
 def test_start_autostart_profiles_starts_only_flagged_ones(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -185,6 +208,25 @@ def test_manufacturer_and_model_combos_are_searchable(tmp_path, qtbot) -> None: 
     assert window._manufacturer_combo.completer() is not None
     assert window._model_combo.isEditable() is True
     assert window._model_combo.completer() is not None
+
+
+def test_model_name_combo_keeps_correct_model_after_form_repopulate(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    # Regression test: _populate_model_combo() used to never explicitly
+    # select the entry matching profile.model_id, so re-populating the form
+    # (profile reselect, language switch, USB hotplug reconnect) always
+    # defaulted the displayed model name to index 0 of that manufacturer's
+    # list (FT-847 here) even though model_id itself never changed.
+    FAKE_HAMLIB_LIST.chmod(FAKE_HAMLIB_LIST.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_HAMLIB_LIST))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    profile.model_id = 1035  # Yaesu FT-991 -- not index 0 of Yaesu's model list
+
+    window._populate_form(profile)
+
+    assert window._model_combo.currentText() == "FT-991"
+    assert window._model_combo.currentData() == 1035
+    assert window._model_id_spin.value() == 1035
 
 
 def test_test_connection_reports_success(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
