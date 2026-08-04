@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import platform
 import shlex
 import subprocess
 import sys
@@ -1373,14 +1374,15 @@ class MainWindow(QMainWindow):
         self._update_button.setText(_("↑ Update to v{ver} available").format(ver=version))
         self._update_button.setEnabled(True)
 
-    def _on_update_check_not_found(self) -> None:
+    def _on_update_check_not_found(self, error: str = "") -> None:
         self._reset_update_button_idle()
-        if self._update_check_is_manual:
-            QMessageBox.warning(
-                self,
-                _("Check for updates"),
-                _("Couldn't check for updates. Please check your internet connection."),
-            )
+        if not self._update_check_is_manual:
+            return
+        message = _("Couldn't check for updates. Please check your internet connection.")
+        if error:
+            message += "\n\n" + _("Details: {error}").format(error=error)
+        message += "\n\n" + _("You can also check manually at {url}").format(url=GITHUB_RELEASES)
+        QMessageBox.warning(self, _("Check for updates"), message)
 
     def _on_update_button_clicked(self) -> None:
         if self._update_button_state == "idle":
@@ -1403,6 +1405,20 @@ class MainWindow(QMainWindow):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
+
+        if platform.system() == "Windows":
+            # The NSIS installer overwrites rigctld/rotctld and their Hamlib
+            # DLLs in place; if a profile is still running when it starts,
+            # those files stay locked and the install partially fails
+            # (confirmed on real hardware: some DLLs couldn't be
+            # overwritten). Stop everything now, well before the download
+            # even finishes, rather than racing the installer's own
+            # `taskkill` of ctld-launcher.exe itself, which never touches
+            # rigctld.exe/rotctld.exe. Linux/macOS don't need this: their
+            # install step replaces files in place while still running is
+            # fine on POSIX, so profiles keep running until the user
+            # actually chooses to restart (see _on_update_install_finished).
+            self.stop_all()
 
         self._update_button_state = "downloading"
         self._update_button.setEnabled(False)

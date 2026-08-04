@@ -61,8 +61,14 @@ VIAddVersionKey "FileDescription" "${APP_NAME} Installer"
 ; ---- Install section ---------------------------------------------------
 Section "Install" SecMain
 
-  ; Kill running instance gracefully before overwriting files
+  ; Kill running instances before overwriting files. rigctld/rotctld are
+  ; started by ctld-launcher.exe as separate child processes, so killing
+  ; only ctld-launcher.exe leaves them running and still holding their
+  ; Hamlib DLLs locked -- confirmed on real hardware: overwriting those
+  ; DLLs fails ("skip/ignore" prompts) unless these are killed too.
   ExecWait 'taskkill /IM "${APP_EXE}" /F' $0
+  ExecWait 'taskkill /IM "rigctld.exe" /F' $0
+  ExecWait 'taskkill /IM "rotctld.exe" /F' $0
 
   SetOutPath "$INSTDIR"
   File /r "..\dist\ctld-launcher\"
@@ -97,8 +103,10 @@ SectionEnd
 ; ---- Uninstall section -------------------------------------------------
 Section "Uninstall"
 
-  ; Kill running instance before removing files
+  ; Kill running instances before removing files (see install section above)
   ExecWait 'taskkill /IM "${APP_EXE}" /F' $0
+  ExecWait 'taskkill /IM "rigctld.exe" /F' $0
+  ExecWait 'taskkill /IM "rotctld.exe" /F' $0
 
   ; Remove the HKCU autostart Run value this app may have registered
   ; (see src/ctld_launcher/core/autostart.py) — best-effort, ignored if absent.

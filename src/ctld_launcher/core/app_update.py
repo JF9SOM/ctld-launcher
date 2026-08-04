@@ -63,17 +63,14 @@ def is_newer_version(latest: str, current: str) -> bool:
     return latest_parts > current_parts
 
 
-def fetch_latest_release(timeout: float = 10) -> tuple[str, str] | None:
-    """Latest (version, download_url) from GitHub Releases, or None on any
-    failure (network error, no matching asset for this platform, malformed
-    response, ...) — a failed check must never crash or block the app.
+def _fetch_latest_release_or_raise(timeout: float = 10) -> tuple[str, str] | None:
+    """Same contract as fetch_latest_release() below, but lets network/parse
+    errors propagate instead of swallowing them, so UpdateCheckWorker can
+    report *why* a manually-triggered check failed instead of just "no".
     """
-    try:
-        req = urllib.request.Request(GITHUB_API, headers={"User-Agent": "ctld-launcher"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-            data = json.loads(resp.read())
-    except (OSError, ValueError):
-        return None
+    req = urllib.request.Request(GITHUB_API, headers={"User-Agent": "ctld-launcher"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+        data = json.loads(resp.read())
 
     tag = str(data.get("tag_name", "")).lstrip("v")
     raw_assets = data.get("assets")
@@ -85,6 +82,17 @@ def fetch_latest_release(timeout: float = 10) -> tuple[str, str] | None:
             url = str(asset.get("browser_download_url", ""))
             return (tag, url) if tag and url else None
     return None
+
+
+def fetch_latest_release(timeout: float = 10) -> tuple[str, str] | None:
+    """Latest (version, download_url) from GitHub Releases, or None on any
+    failure (network error, no matching asset for this platform, malformed
+    response, ...) — a failed check must never crash or block the app.
+    """
+    try:
+        return _fetch_latest_release_or_raise(timeout)
+    except (OSError, ValueError):
+        return None
 
 
 def _current_macos_app_dir() -> Path:
@@ -100,15 +108,19 @@ def _current_macos_app_dir() -> Path:
 
 
 class UpdateCheckWorker(QThread):
-    """Runs fetch_latest_release() off the GUI thread."""
+    """Runs the GitHub Releases check off the GUI thread."""
 
     result = Signal(str, str)  # latest_version, download_url
-    not_found = Signal()
+    not_found = Signal(str)  # reason (empty string if simply no matching asset)
 
     def run(self) -> None:
-        found = fetch_latest_release()
+        try:
+            found = _fetch_latest_release_or_raise()
+        except (OSError, ValueError) as exc:
+            self.not_found.emit(str(exc))
+            return
         if found is None:
-            self.not_found.emit()
+            self.not_found.emit("")
             return
         version, url = found
         self.result.emit(version, url)

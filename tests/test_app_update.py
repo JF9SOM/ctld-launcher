@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import urllib.error
 
+import pytest
+
 from ctld_launcher.core import app_update
 
 
@@ -96,3 +98,17 @@ def test_fetch_latest_release_none_on_malformed_response(monkeypatch) -> None:  
     monkeypatch.setattr(app_update.urllib.request, "urlopen", lambda *a, **k: _BadResponse())
 
     assert app_update.fetch_latest_release() is None
+
+
+def test_fetch_latest_release_or_raise_propagates_network_error(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # fetch_latest_release() intentionally swallows this (see tests above) so
+    # the silent startup check never bothers the user, but UpdateCheckWorker
+    # needs the real reason to report back on a manually-triggered check --
+    # this is the underlying function that lets it propagate.
+    def raise_error(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise urllib.error.URLError("no network in tests")
+
+    monkeypatch.setattr(app_update.urllib.request, "urlopen", raise_error)
+
+    with pytest.raises(urllib.error.URLError):
+        app_update._fetch_latest_release_or_raise()

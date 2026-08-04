@@ -636,17 +636,20 @@ def test_manual_check_up_to_date_shows_info_dialog(tmp_path, qtbot, monkeypatch)
     assert window._update_button_state == "idle"
 
 
-def test_manual_check_not_found_shows_warning_dialog(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_manual_check_not_found_shows_warning_dialog_with_reason(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
     from PySide6.QtWidgets import QMessageBox
 
     window = _make_window(tmp_path, qtbot)
 
     warning_calls = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warning_calls.append(True))
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warning_calls.append(a[-1]))
     window._update_check_is_manual = True
-    window._on_update_check_not_found()
+    window._on_update_check_not_found("[Errno -2] Name or service not known")
 
-    assert warning_calls == [True]
+    assert len(warning_calls) == 1
+    assert "Name or service not known" in warning_calls[0]
     assert window._update_button_state == "idle"
 
 
@@ -698,6 +701,82 @@ def test_update_button_click_confirms_and_starts_download(tmp_path, qtbot, monke
 
     assert window._update_button.isEnabled() is False
     assert "Downloading" in window._update_button.text()
+
+    worker = window._update_install_worker
+    assert worker is not None
+    assert worker.wait(3000) is True
+    qtbot.wait(50)
+
+
+def test_update_install_stops_all_profiles_on_windows_before_installing(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    # Regression test: the NSIS installer overwrites rigctld/rotctld and
+    # their Hamlib DLLs in place, so if a profile is still running when it
+    # starts, those files stay locked and the install partially fails
+    # (confirmed on real hardware -- some DLLs couldn't be overwritten).
+    # Everything must be stopped before the installer ever launches, not
+    # left to race the installer's own (rigctld/rotctld-unaware) taskkill.
+    from PySide6.QtWidgets import QMessageBox
+
+    from ctld_launcher.core import app_update
+    from ctld_launcher.ui import main_window
+
+    monkeypatch.setattr(main_window.platform, "system", lambda: "Windows")
+
+    def fail_immediately(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise OSError("no network in tests")
+
+    monkeypatch.setattr(app_update.urllib.request, "urlretrieve", fail_immediately)
+
+    window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+
+    stop_all_calls = []
+    monkeypatch.setattr(window, "stop_all", lambda: stop_all_calls.append(True))
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    window._on_update_button_clicked()
+
+    assert stop_all_calls == [True]
+
+    worker = window._update_install_worker
+    assert worker is not None
+    assert worker.wait(3000) is True
+    qtbot.wait(50)
+
+
+def test_update_install_does_not_stop_profiles_on_non_windows(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    # Linux/macOS replace files in place while still running (see
+    # core/app_update.py), so profiles are deliberately left running until
+    # the user actually chooses to restart -- only Windows needs the eager
+    # stop.
+    from PySide6.QtWidgets import QMessageBox
+
+    from ctld_launcher.core import app_update
+    from ctld_launcher.ui import main_window
+
+    monkeypatch.setattr(main_window.platform, "system", lambda: "Linux")
+
+    def fail_immediately(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise OSError("no network in tests")
+
+    monkeypatch.setattr(app_update.urllib.request, "urlretrieve", fail_immediately)
+
+    window = _make_window(tmp_path, qtbot)
+    _mock_current_version(monkeypatch)
+    window._on_update_check_result("9.9.9", "https://example.com/asset")
+
+    stop_all_calls = []
+    monkeypatch.setattr(window, "stop_all", lambda: stop_all_calls.append(True))
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    window._on_update_button_clicked()
+
+    assert stop_all_calls == []
 
     worker = window._update_install_worker
     assert worker is not None
