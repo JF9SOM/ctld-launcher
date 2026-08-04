@@ -303,6 +303,47 @@ def test_test_connection_routes_through_daemon_when_running(  # type: ignore[no-
         window.stop_all()
 
 
+def test_test_connection_flags_port_mismatch_without_querying_daemon(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    # Regression test: once routed through the running daemon (NET rigctl),
+    # the test always succeeds regardless of which port is selected in the
+    # form, since the daemon answers for whatever port *it* opened at start
+    # -- not necessarily the one currently shown (e.g. edited after start,
+    # or simply the wrong one). Catch the mismatch before even asking the
+    # daemon, rather than reporting a misleading green result.
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    profile.port = "COM4"
+
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+
+        profile.port = "COM5"  # edited after start without restarting
+
+        called = False
+
+        def fake_run(command, **kwargs):  # type: ignore[no-untyped-def]
+            nonlocal called
+            called = True
+            return subprocess.CompletedProcess(command, returncode=0, stdout="ok", stderr="")
+
+        monkeypatch.setattr("ctld_launcher.ui.main_window.subprocess.run", fake_run)
+
+        window._on_test_connection()
+
+        assert called is False
+        assert "✗" in window._test_connection_result.text()
+        assert "COM4" in window._test_connection_result.text()
+        assert "COM5" in window._test_connection_result.text()
+        assert "#D9534F" in window._test_connection_button.styleSheet()
+    finally:
+        window.stop_all()
+
+
 def test_test_connection_uses_direct_serial_when_not_running(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     window = _make_window(tmp_path, qtbot, test_executable_resolver=lambda kind: "rigctl")
     window._add_profile(ProfileKind.RIG)

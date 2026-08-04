@@ -89,6 +89,18 @@ def build_test_command(executable: str, profile: Profile) -> list[str]:
     return command
 
 
+def serial_port_from_command(command: list[str]) -> str | None:
+    """Extract the -r (serial port) argument from a build_command()-built
+    command list -- the port a running rigctld/rotctld was actually launched
+    with, which can differ from a profile's current `port` field if it was
+    edited after the daemon started without a restart.
+    """
+    try:
+        return command[command.index("-r") + 1]
+    except ValueError:
+        return None
+
+
 def build_test_command_via_daemon(executable: str, profile: Profile) -> list[str]:
     """Test connectivity through an already-running rigctld/rotctld instead of
     opening the serial port directly.
@@ -124,6 +136,10 @@ class CtldProcess:
         self._on_exit = on_exit
         self._process: subprocess.Popen[str] | None = None
         self._reader_thread: threading.Thread | None = None
+
+    @property
+    def command(self) -> list[str]:
+        return list(self._command)
 
     @property
     def is_running(self) -> bool:

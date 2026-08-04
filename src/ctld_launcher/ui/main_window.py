@@ -54,6 +54,7 @@ from ctld_launcher.core.process_manager import (
     build_command,
     build_test_command,
     build_test_command_via_daemon,
+    serial_port_from_command,
 )
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
@@ -1141,6 +1142,20 @@ class MainWindow(QMainWindow):
             return
 
         if self.is_running(profile.id):
+            running_command = self._processes[profile.id].command
+            actual_port = serial_port_from_command(running_command)
+            if (
+                profile.port
+                and actual_port
+                and profile.port.strip().casefold() != actual_port.strip().casefold()
+            ):
+                message = _(
+                    "✗ The running process is using port {actual_port}, "
+                    "but {selected_port} is selected. Restart to apply "
+                    "the new port."
+                ).format(actual_port=actual_port, selected_port=profile.port)
+                self._set_test_connection_result(message, success=False)
+                return
             command = build_test_command_via_daemon(executable, profile)
         else:
             command = build_test_command(executable, profile)

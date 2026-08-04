@@ -12,6 +12,7 @@ from ctld_launcher.core.process_manager import (
     build_command,
     build_test_command,
     build_test_command_via_daemon,
+    serial_port_from_command,
 )
 from ctld_launcher.core.profile import Profile, ProfileKind
 
@@ -189,6 +190,18 @@ def test_build_test_command_via_daemon_rotator_queries_get_pos() -> None:
     command = build_test_command_via_daemon("rotctl", profile)
     assert command[:4] == ["rotctl", "-m", "2", "-r"]
     assert command[-1] == "p"
+
+
+def test_serial_port_from_command_extracts_r_flag_value() -> None:
+    profile = Profile(name="IC-9700", kind=ProfileKind.RIG, model_id=3081, port="COM4")
+    command = build_command("rigctld", profile)
+    assert serial_port_from_command(command) == "COM4"
+
+
+def test_serial_port_from_command_none_when_no_port() -> None:
+    profile = Profile(name="Dummy", kind=ProfileKind.RIG, model_id=1)
+    command = build_command("rigctld", profile)
+    assert serial_port_from_command(command) is None
 
 
 def test_build_test_command_via_daemon_all_interfaces_connects_via_localhost() -> None:
