@@ -202,6 +202,32 @@ def test_start_autostart_profiles_starts_only_flagged_ones(tmp_path, qtbot) -> N
         window.stop_all()
 
 
+def test_start_button_turns_green_and_relabels_while_running(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    # Regression test: the Start button used to just go grey (Qt's default
+    # disabled look) once running, with no positive indication that it had
+    # actually started -- distinguishable only by the separate, easy-to-miss
+    # status label. It should now clearly read "Running" in green.
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    assert window._start_button.text() == "Start"
+    assert window._start_button.styleSheet() == ""
+
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+
+        assert window._start_button.text() == "Running"
+        assert "#1D9E75" in window._start_button.styleSheet()
+
+        window._stop_profile(profile.id)
+        assert window._start_button.text() == "Start"
+        assert window._start_button.styleSheet() == ""
+    finally:
+        window.stop_all()
+
+
 def test_manufacturer_and_model_combos_are_searchable(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
     window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: "rigctld")
     window._add_profile(ProfileKind.RIG)
@@ -384,6 +410,29 @@ def test_language_switch_retranslates_widgets(tmp_path, qtbot) -> None:  # type:
         # profile.model_id / port / etc. must survive the retranslation
         assert window.profiles[0].model_id == 1
     finally:
+        set_language("en")
+
+
+def test_language_switch_relabels_start_button_while_running(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    from ctld_launcher.i18n import set_language
+
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    set_language("en")
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+        assert window._start_button.text() == "Running"
+
+        ja_index = window._language_combo.findData("ja")
+        window._language_combo.setCurrentIndex(ja_index)
+
+        assert window._start_button.text() == "起動中"
+    finally:
+        window.stop_all()
         set_language("en")
 
 

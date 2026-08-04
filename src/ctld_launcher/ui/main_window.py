@@ -73,6 +73,10 @@ FAILURE_COLOR = QColor("#D9534F")
 
 TEST_SUCCESS_STYLE = "background-color: #1D9E75; color: white;"
 TEST_FAILURE_STYLE = "background-color: #D9534F; color: white;"
+# The Start button stays disabled while running (starting it again is a
+# no-op) -- ":disabled" is needed here, or Qt's native disabled-button look
+# would override the green and it would just look grey again.
+START_BUTTON_RUNNING_STYLE = "QPushButton:disabled { background-color: #1D9E75; color: white; }"
 
 
 def _debug_levels() -> list[str]:
@@ -830,7 +834,8 @@ class MainWindow(QMainWindow):
 
         self._name_edit.setToolTip(_("Enter any name you like for this profile."))
         self._command_label.setText(_("Command"))
-        self._start_button.setText(_("Start"))
+        selected = self._selected_profile()
+        self._update_start_button_label(selected is not None and self.is_running(selected.id))
         self._stop_button.setText(_("Stop"))
         self._restart_button.setText(_("Restart"))
         self._log_label.setText(_("Log"))
@@ -1530,9 +1535,18 @@ class MainWindow(QMainWindow):
         else:
             self._status_label.setText(_("○ Stopped"))
         self._start_button.setEnabled(profile is not None and not running)
+        self._update_start_button_label(running)
         self._stop_button.setEnabled(running)
         self._restart_button.setEnabled(running)
         self._update_command_preview()
+
+    def _update_start_button_label(self, running: bool) -> None:
+        if running:
+            self._start_button.setText(_("Running"))
+            self._start_button.setStyleSheet(START_BUTTON_RUNNING_STYLE)
+        else:
+            self._start_button.setText(_("Start"))
+            self._start_button.setStyleSheet("")
 
     # ------------------------------------------------------------------ #
     # Window lifecycle (tray app: closing hides, it doesn't quit)

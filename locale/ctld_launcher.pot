@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2026-08-04 22:33+0900\n"
+"POT-Creation-Date: 2026-08-04 22:55+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -15,439 +15,443 @@ msgstr ""
 "Generated-By: pygettext.py 1.5\n"
 
 
-#: src/ctld_launcher/ui/main_window.py:83
+#: src/ctld_launcher/ui/main_window.py:87
 msgid "Normal"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:84
+#: src/ctld_launcher/ui/main_window.py:88
 msgid "Verbose (-v)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:85
+#: src/ctld_launcher/ui/main_window.py:89
 msgid "Verbose (-vv)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:86
+#: src/ctld_launcher/ui/main_window.py:90
 msgid "Verbose (-vvv)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:87
+#: src/ctld_launcher/ui/main_window.py:91
 msgid "Debug (-vvvv)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:88
+#: src/ctld_launcher/ui/main_window.py:92
 msgid "Trace (-vvvvv)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:93
+#: src/ctld_launcher/ui/main_window.py:97
 msgid "(Not set)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:325
-#: src/ctld_launcher/ui/main_window.py:802
-#: src/ctld_launcher/ui/main_window.py:1352
-#: src/ctld_launcher/ui/main_window.py:1361
-#: src/ctld_launcher/ui/main_window.py:1376
+#: src/ctld_launcher/ui/main_window.py:329
+#: src/ctld_launcher/ui/main_window.py:806
+#: src/ctld_launcher/ui/main_window.py:1357
+#: src/ctld_launcher/ui/main_window.py:1366
+#: src/ctld_launcher/ui/main_window.py:1381
 msgid "Check for updates"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:343
-#: src/ctld_launcher/ui/main_window.py:803
+#: src/ctld_launcher/ui/main_window.py:347
+#: src/ctld_launcher/ui/main_window.py:807
 msgid "+ Rig"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:345
-#: src/ctld_launcher/ui/main_window.py:804
+#: src/ctld_launcher/ui/main_window.py:349
+#: src/ctld_launcher/ui/main_window.py:808
 msgid "+ Rotator"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:355
-#: src/ctld_launcher/ui/main_window.py:805
+#: src/ctld_launcher/ui/main_window.py:359
+#: src/ctld_launcher/ui/main_window.py:809
 msgid "Remove"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:359
-#: src/ctld_launcher/ui/main_window.py:806
+#: src/ctld_launcher/ui/main_window.py:363
+#: src/ctld_launcher/ui/main_window.py:810
 msgid "Start at login"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:361
-#: src/ctld_launcher/ui/main_window.py:808
+#: src/ctld_launcher/ui/main_window.py:365
+#: src/ctld_launcher/ui/main_window.py:812
 msgid "Starts this app itself in the tray at login. To also start individual profiles automatically, enable the toggle next to each profile in the list on the left."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:373
-#: src/ctld_launcher/ui/main_window.py:816
+#: src/ctld_launcher/ui/main_window.py:377
+#: src/ctld_launcher/ui/main_window.py:820
 msgid "Minimize to tray"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:375
-#: src/ctld_launcher/ui/main_window.py:818
+#: src/ctld_launcher/ui/main_window.py:379
+#: src/ctld_launcher/ui/main_window.py:822
 msgid "Hides this window; rigctld/rotctld keep running in the background. Click the tray icon to bring it back."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:383
-#: src/ctld_launcher/ui/main_window.py:823
+#: src/ctld_launcher/ui/main_window.py:387
+#: src/ctld_launcher/ui/main_window.py:827
 msgid "Quit ctld-launcher"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:385
-#: src/ctld_launcher/ui/main_window.py:825
+#: src/ctld_launcher/ui/main_window.py:389
+#: src/ctld_launcher/ui/main_window.py:829
 msgid "Stops all running rigctld/rotctld processes and closes the app completely, including the tray icon."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:402
-#: src/ctld_launcher/ui/main_window.py:831
+#: src/ctld_launcher/ui/main_window.py:406
+#: src/ctld_launcher/ui/main_window.py:835
 msgid "Enter any name you like for this profile."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:415
-#: src/ctld_launcher/ui/main_window.py:832
+#: src/ctld_launcher/ui/main_window.py:419
+#: src/ctld_launcher/ui/main_window.py:836
 msgid "Command"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:423
-#: src/ctld_launcher/ui/main_window.py:833
+#: src/ctld_launcher/ui/main_window.py:427
+#: src/ctld_launcher/ui/main_window.py:1548
 msgid "Start"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:425
-#: src/ctld_launcher/ui/main_window.py:834
+#: src/ctld_launcher/ui/main_window.py:429
+#: src/ctld_launcher/ui/main_window.py:839
 msgid "Stop"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:427
-#: src/ctld_launcher/ui/main_window.py:835
+#: src/ctld_launcher/ui/main_window.py:431
+#: src/ctld_launcher/ui/main_window.py:840
 msgid "Restart"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:434
-#: src/ctld_launcher/ui/main_window.py:836
+#: src/ctld_launcher/ui/main_window.py:438
+#: src/ctld_launcher/ui/main_window.py:841
 msgid "Log"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:445
-#: src/ctld_launcher/ui/main_window.py:838
+#: src/ctld_launcher/ui/main_window.py:449
+#: src/ctld_launcher/ui/main_window.py:843
 msgid "Model"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:449
-#: src/ctld_launcher/ui/main_window.py:841
+#: src/ctld_launcher/ui/main_window.py:453
+#: src/ctld_launcher/ui/main_window.py:846
 msgid "Select the manufacturer of your rig/rotator. You can type to filter the list."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:454
-#: src/ctld_launcher/ui/main_window.py:844
+#: src/ctld_launcher/ui/main_window.py:458
+#: src/ctld_launcher/ui/main_window.py:849
 msgid "Select the model of your rig/rotator."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:460
-#: src/ctld_launcher/ui/main_window.py:847
+#: src/ctld_launcher/ui/main_window.py:464
+#: src/ctld_launcher/ui/main_window.py:852
 msgid "Hamlib's numeric model ID. Filled in automatically when you pick a manufacturer/model above; you can also type it directly for a model not in the list."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:467
-#: src/ctld_launcher/ui/main_window.py:839
+#: src/ctld_launcher/ui/main_window.py:471
+#: src/ctld_launcher/ui/main_window.py:844
 msgid "Manufacturer"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:468
-#: src/ctld_launcher/ui/main_window.py:843
+#: src/ctld_launcher/ui/main_window.py:472
+#: src/ctld_launcher/ui/main_window.py:848
 msgid "Model name"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:469
-#: src/ctld_launcher/ui/main_window.py:845
+#: src/ctld_launcher/ui/main_window.py:473
+#: src/ctld_launcher/ui/main_window.py:850
 msgid "Model ID"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:479
-#: src/ctld_launcher/ui/main_window.py:854
+#: src/ctld_launcher/ui/main_window.py:483
+#: src/ctld_launcher/ui/main_window.py:859
 msgid "Connection"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:483
-#: src/ctld_launcher/ui/main_window.py:621
-#: src/ctld_launcher/ui/main_window.py:855
-#: src/ctld_launcher/ui/main_window.py:912
+#: src/ctld_launcher/ui/main_window.py:487
+#: src/ctld_launcher/ui/main_window.py:625
+#: src/ctld_launcher/ui/main_window.py:860
+#: src/ctld_launcher/ui/main_window.py:917
 msgid "Port"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:487
-#: src/ctld_launcher/ui/main_window.py:856
+#: src/ctld_launcher/ui/main_window.py:491
+#: src/ctld_launcher/ui/main_window.py:861
 msgid "Select the serial port your rig/rotator is connected to."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:492
-#: src/ctld_launcher/ui/main_window.py:858
+#: src/ctld_launcher/ui/main_window.py:496
+#: src/ctld_launcher/ui/main_window.py:863
 msgid "Re-scan connected serial ports. Click this if you plugged in the device after opening the app."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:500
-#: src/ctld_launcher/ui/main_window.py:863
+#: src/ctld_launcher/ui/main_window.py:504
+#: src/ctld_launcher/ui/main_window.py:868
 msgid "Speed"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:506
-#: src/ctld_launcher/ui/main_window.py:865
+#: src/ctld_launcher/ui/main_window.py:510
+#: src/ctld_launcher/ui/main_window.py:870
 msgid "Must match the serial speed set on the radio itself, or the connection will fail."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:514
-#: src/ctld_launcher/ui/main_window.py:867
+#: src/ctld_launcher/ui/main_window.py:518
+#: src/ctld_launcher/ui/main_window.py:872
 msgid "Auto-start/stop this profile with this USB device"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:517
-#: src/ctld_launcher/ui/main_window.py:869
+#: src/ctld_launcher/ui/main_window.py:521
+#: src/ctld_launcher/ui/main_window.py:874
 msgid "Plug in the device and select its port above first, then turn this on: ctld-launcher will remember that USB device and automatically start this profile whenever it's plugged in, and stop it when unplugged. Only works while ctld-launcher itself is running."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:533
-#: src/ctld_launcher/ui/main_window.py:876
+#: src/ctld_launcher/ui/main_window.py:537
+#: src/ctld_launcher/ui/main_window.py:881
 msgid "ICOM CIV address"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:538
-#: src/ctld_launcher/ui/main_window.py:878
+#: src/ctld_launcher/ui/main_window.py:542
+#: src/ctld_launcher/ui/main_window.py:883
 msgid "For ICOM rigs, enter the CIV address exactly as shown on the radio (e.g. A2). Leave blank for other manufacturers."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:548
-#: src/ctld_launcher/ui/main_window.py:883
-#: src/ctld_launcher/ui/main_window.py:1193
+#: src/ctld_launcher/ui/main_window.py:552
+#: src/ctld_launcher/ui/main_window.py:888
+#: src/ctld_launcher/ui/main_window.py:1198
 msgid "Test connection"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:550
-#: src/ctld_launcher/ui/main_window.py:885
+#: src/ctld_launcher/ui/main_window.py:554
+#: src/ctld_launcher/ui/main_window.py:890
 msgid "Query once via rigctl/rotctl to check the port, speed, and model settings"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:559
-#: src/ctld_launcher/ui/main_window.py:887
+#: src/ctld_launcher/ui/main_window.py:563
+#: src/ctld_launcher/ui/main_window.py:892
 msgid "Advanced (data bits, parity, flow control)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:561
-#: src/ctld_launcher/ui/main_window.py:889
+#: src/ctld_launcher/ui/main_window.py:565
+#: src/ctld_launcher/ui/main_window.py:894
 msgid "Usually not needed. Only for rigs/rotators that require non-default settings."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:569
-#: src/ctld_launcher/ui/main_window.py:891
+#: src/ctld_launcher/ui/main_window.py:573
+#: src/ctld_launcher/ui/main_window.py:896
 msgid "Usually fine left as \"(Not set)\". Only change if your rig/rotator's manual specifies a particular value."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:592
-#: src/ctld_launcher/ui/main_window.py:895
+#: src/ctld_launcher/ui/main_window.py:596
+#: src/ctld_launcher/ui/main_window.py:900
 msgid "Data bits"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:593
-#: src/ctld_launcher/ui/main_window.py:897
+#: src/ctld_launcher/ui/main_window.py:597
+#: src/ctld_launcher/ui/main_window.py:902
 msgid "Stop bits"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:594
-#: src/ctld_launcher/ui/main_window.py:899
+#: src/ctld_launcher/ui/main_window.py:598
+#: src/ctld_launcher/ui/main_window.py:904
 msgid "Parity"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:595
-#: src/ctld_launcher/ui/main_window.py:901
+#: src/ctld_launcher/ui/main_window.py:599
+#: src/ctld_launcher/ui/main_window.py:906
 msgid "Flow control"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:609
-#: src/ctld_launcher/ui/main_window.py:904
+#: src/ctld_launcher/ui/main_window.py:613
+#: src/ctld_launcher/ui/main_window.py:909
 msgid "Network"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:611
-#: src/ctld_launcher/ui/main_window.py:905
+#: src/ctld_launcher/ui/main_window.py:615
+#: src/ctld_launcher/ui/main_window.py:910
 msgid "Listen address"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:615
-#: src/ctld_launcher/ui/main_window.py:907
+#: src/ctld_launcher/ui/main_window.py:619
+#: src/ctld_launcher/ui/main_window.py:912
 msgid "Usually leave as 127.0.0.1 (only software on this same PC can connect). Change to 0.0.0.0 to also allow other PCs on your LAN to connect."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:631
-#: src/ctld_launcher/ui/main_window.py:914
+#: src/ctld_launcher/ui/main_window.py:635
+#: src/ctld_launcher/ui/main_window.py:919
 msgid "Debug"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:636
-#: src/ctld_launcher/ui/main_window.py:916
+#: src/ctld_launcher/ui/main_window.py:640
+#: src/ctld_launcher/ui/main_window.py:921
 msgid "Raise this for more detailed logs. Leave as \"Normal\" unless troubleshooting."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:640
-#: src/ctld_launcher/ui/main_window.py:918
+#: src/ctld_launcher/ui/main_window.py:644
+#: src/ctld_launcher/ui/main_window.py:923
 msgid "Log file path (optional)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:642
-#: src/ctld_launcher/ui/main_window.py:920
+#: src/ctld_launcher/ui/main_window.py:646
+#: src/ctld_launcher/ui/main_window.py:925
 msgid "Save rigctld/rotctld's output to this file, if you want a record of it. The app works fine with this left blank."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:648
-#: src/ctld_launcher/ui/main_window.py:925
+#: src/ctld_launcher/ui/main_window.py:652
+#: src/ctld_launcher/ui/main_window.py:930
 msgid "Browse…"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:656
-#: src/ctld_launcher/ui/main_window.py:927
+#: src/ctld_launcher/ui/main_window.py:660
+#: src/ctld_launcher/ui/main_window.py:932
 msgid "Extra options (advanced)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:660
-#: src/ctld_launcher/ui/main_window.py:929
+#: src/ctld_launcher/ui/main_window.py:664
+#: src/ctld_launcher/ui/main_window.py:934
 msgid "Additional command-line options passed to rigctld/rotctld (advanced)."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:692
-#: src/ctld_launcher/ui/main_window.py:815
+#: src/ctld_launcher/ui/main_window.py:696
+#: src/ctld_launcher/ui/main_window.py:819
 msgid "Start this profile automatically when the app launches"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:734
+#: src/ctld_launcher/ui/main_window.py:738
 msgid "New Rig"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:736
+#: src/ctld_launcher/ui/main_window.py:740
 msgid "New Rotator"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:766
+#: src/ctld_launcher/ui/main_window.py:770
 msgid "Couldn't set autostart"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:799
-#: src/ctld_launcher/ui/main_window.py:1368
-#: src/ctld_launcher/ui/main_window.py:1419
+#: src/ctld_launcher/ui/main_window.py:803
+#: src/ctld_launcher/ui/main_window.py:1373
+#: src/ctld_launcher/ui/main_window.py:1424
 msgid "↑ Update to v{ver} available"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1042
+#: src/ctld_launcher/ui/main_window.py:1047
 msgid "Default is 4532 for rigs. Match your rig control software's TCP port to this number."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1046
+#: src/ctld_launcher/ui/main_window.py:1051
 msgid "Default is 4533 for rotators. Match your rotator control software's TCP port to this number."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1053
+#: src/ctld_launcher/ui/main_window.py:1058
 msgid "(USB device identified)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1055
+#: src/ctld_launcher/ui/main_window.py:1060
 msgid "(no USB device identified yet)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1141
+#: src/ctld_launcher/ui/main_window.py:1146
 msgid "✗ {error}"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1152
+#: src/ctld_launcher/ui/main_window.py:1157
 msgid "✗ The running process is using port {actual_port}, but {selected_port} is selected. Restart to apply the new port."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1163
+#: src/ctld_launcher/ui/main_window.py:1168
 msgid "Testing…"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1176
+#: src/ctld_launcher/ui/main_window.py:1181
 msgid "✗ Timed out (no response from port)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1180
+#: src/ctld_launcher/ui/main_window.py:1185
 msgid "✗ Couldn't run: {error}"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1185
+#: src/ctld_launcher/ui/main_window.py:1190
 msgid "✓ Response: {output}"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1189
+#: src/ctld_launcher/ui/main_window.py:1194
 msgid "Error"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1189
+#: src/ctld_launcher/ui/main_window.py:1194
 msgid "✗ {output}"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1198
+#: src/ctld_launcher/ui/main_window.py:1203
 msgid "Select log file"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1295
+#: src/ctld_launcher/ui/main_window.py:1300
 msgid "Can't start"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1343
+#: src/ctld_launcher/ui/main_window.py:1348
 msgid "Checking for updates…"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1362
+#: src/ctld_launcher/ui/main_window.py:1367
 msgid "You're already using the latest version."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1377
+#: src/ctld_launcher/ui/main_window.py:1382
 msgid "Couldn't check for updates. Please check your internet connection."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1393
+#: src/ctld_launcher/ui/main_window.py:1398
 msgid "Update ctld-launcher"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1394
+#: src/ctld_launcher/ui/main_window.py:1399
 msgid "Download and install ctld-launcher v{ver} now? The app will need to restart to finish."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1404
+#: src/ctld_launcher/ui/main_window.py:1409
 msgid "Downloading…"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1423
+#: src/ctld_launcher/ui/main_window.py:1428
 msgid "Update failed"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1424
+#: src/ctld_launcher/ui/main_window.py:1429
 msgid ""
 "Couldn't install the update: {error}\n"
 "\n"
 "You can also download it manually from {url}"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1432
+#: src/ctld_launcher/ui/main_window.py:1437
 msgid "✓ Updated — restart to finish"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1437
-#: src/ctld_launcher/ui/main_window.py:1448
+#: src/ctld_launcher/ui/main_window.py:1442
+#: src/ctld_launcher/ui/main_window.py:1453
 msgid "Update ready"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1438
+#: src/ctld_launcher/ui/main_window.py:1443
 msgid "The installer has started. ctld-launcher needs to close now so it can finish installing."
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1449
+#: src/ctld_launcher/ui/main_window.py:1454
 msgid ""
 "The update is ready. Restart now to finish? Any running profiles will be stopped.\n"
 "(You can also restart later — the update is already applied.)"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1529
+#: src/ctld_launcher/ui/main_window.py:1534
 msgid "● Running · PID {pid}"
 msgstr ""
 
-#: src/ctld_launcher/ui/main_window.py:1531
+#: src/ctld_launcher/ui/main_window.py:1536
 msgid "○ Stopped"
+msgstr ""
+
+#: src/ctld_launcher/ui/main_window.py:1545
+msgid "Running"
 msgstr ""
 
 #: src/ctld_launcher/ui/tray.py:50
