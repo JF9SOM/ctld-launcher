@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import IO
 
 from ctld_launcher.core.profile import Profile, ProfileKind
+from ctld_launcher.core.subprocess_utils import NO_WINDOW_FLAGS
 
 
 class CtldProcessError(Exception):
@@ -124,6 +125,7 @@ class CtldProcess:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=NO_WINDOW_FLAGS,
         )
         self._reader_thread = threading.Thread(target=self._read_output, daemon=True)
         self._reader_thread.start()

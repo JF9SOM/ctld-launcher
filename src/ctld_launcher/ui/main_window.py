@@ -52,6 +52,7 @@ from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufac
 from ctld_launcher.core.process_manager import CtldProcess, build_command, build_test_command
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
+from ctld_launcher.core.subprocess_utils import NO_WINDOW_FLAGS
 from ctld_launcher.core.usb_watch import UsbHotplugTracker, UsbIdentity, identity_for_port
 from ctld_launcher.i18n import _, get_language, set_language
 from ctld_launcher.version import get_version
@@ -1145,6 +1146,7 @@ class MainWindow(QMainWindow):
                 capture_output=True,
                 text=True,
                 timeout=5,
+                creationflags=NO_WINDOW_FLAGS,
             )
         except subprocess.TimeoutExpired:
             self._set_test_connection_result(

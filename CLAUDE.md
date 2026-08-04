@@ -107,6 +107,7 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 ## 修正済みの不具合(参考)
 
 - **機種名プルダウンが`model_id`とずれて表示される**(実機テストで発覚): `MainWindow._populate_model_combo()`が、メーカーの機種一覧を並べ直すだけで「保存されている`model_id`に一致する項目を選び直す」処理を欠いていたため、フォーム再描画(プロファイル選択し直し・言語切替・USBホットプラグでの再接続時など)のたびにQtの標準動作でリストの先頭の機種が表示されてしまっていた(`profile.model_id`自体は正しいまま、表示だけがずれる)。`_populate_model_combo()`に`model_id`引数を追加し、`findData(model_id)`で明示的に選択し直すことで解決。
+- **Windowsで「起動」を押すと黒いコンソールウィンドウが開いたままになる**(実機テストで発覚、Linux/macOSでは再現しない): `rigctld`/`rotctld`/`rigctl`/`rotctl`はコンソールサブシステムの実行ファイルなので、Windowsでは`subprocess.Popen`/`subprocess.run`で素朴に起動すると新規コンソールウィンドウが自動的に開いてしまう(Linux/macOSにはこの概念自体がない)。閉じるとプロセスも道連れで終了し、最小化してもタスクバーに残ってしまう。`core/subprocess_utils.py`の`NO_WINDOW_FLAGS`(Windowsでのみ`subprocess.CREATE_NO_WINDOW`、それ以外は`0`)を、`CtldProcess.start()`・接続テスト・`--list`(機種一覧取得)の3箇所すべての`creationflags`に渡すことで解決。stdout/stderrのパイプ経由のログ取得には影響しない。
 
 ## 関連プロジェクト
 

@@ -23,6 +23,7 @@ import subprocess
 from dataclasses import dataclass
 
 from ctld_launcher.core.profile import ProfileKind
+from ctld_launcher.core.subprocess_utils import NO_WINDOW_FLAGS
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,7 @@ def list_models(executable: str) -> list[HamlibModel]:
             text=True,
             timeout=10,
             check=True,
+            creationflags=NO_WINDOW_FLAGS,
         )
     except (OSError, subprocess.SubprocessError):
         return []
