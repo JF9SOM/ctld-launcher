@@ -11,6 +11,7 @@ from ctld_launcher.core.process_manager import (
     CtldProcessError,
     build_command,
     build_test_command,
+    build_test_command_via_daemon,
 )
 from ctld_launcher.core.profile import Profile, ProfileKind
 
@@ -156,6 +157,50 @@ def test_build_test_command_omits_network_flags() -> None:
     command = build_test_command("rigctl", profile)
     assert "-t" not in command
     assert "-T" not in command
+
+
+def test_build_test_command_via_daemon_rig_uses_net_model_and_listen_port() -> None:
+    profile = Profile(
+        name="IC-9700",
+        kind=ProfileKind.RIG,
+        model_id=3081,
+        port="/dev/ttyUSB0",
+        listen_address="127.0.0.1",
+        listen_port=4532,
+    )
+    assert build_test_command_via_daemon("rigctl", profile) == [
+        "rigctl",
+        "-m",
+        "2",
+        "-r",
+        "127.0.0.1:4532",
+        "f",
+    ]
+
+
+def test_build_test_command_via_daemon_rotator_queries_get_pos() -> None:
+    profile = Profile(
+        name="SPID",
+        kind=ProfileKind.ROTATOR,
+        model_id=401,
+        port="/dev/ttyUSB1",
+        listen_port=4533,
+    )
+    command = build_test_command_via_daemon("rotctl", profile)
+    assert command[:4] == ["rotctl", "-m", "2", "-r"]
+    assert command[-1] == "p"
+
+
+def test_build_test_command_via_daemon_all_interfaces_connects_via_localhost() -> None:
+    profile = Profile(
+        name="Dummy",
+        kind=ProfileKind.RIG,
+        model_id=1,
+        listen_address="0.0.0.0",
+        listen_port=4532,
+    )
+    command = build_test_command_via_daemon("rigctl", profile)
+    assert command[command.index("-r") + 1] == "127.0.0.1:4532"
 
 
 def test_process_start_stop_captures_output() -> None:

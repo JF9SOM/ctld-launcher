@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import stat
+import subprocess
 from pathlib import Path
 
 from ctld_launcher.core.profile import ProfileKind, ProfileStore
@@ -268,6 +269,57 @@ def test_test_connection_button_style_resets_on_profile_switch(tmp_path, qtbot) 
     window._add_profile(ProfileKind.RIG)
 
     assert window._test_connection_button.styleSheet() == ""
+
+
+def test_test_connection_routes_through_daemon_when_running(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    # Regression test: once rigctld/rotctld is running it already holds the
+    # serial port open, so a second, direct rigctl/rotctl open of the same
+    # port fails (a Windows COM port is exclusive, so this isn't a race, it
+    # always fails there). The test button must instead go through the
+    # running daemon over the network (NET rigctl, model 2).
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+
+        captured: list[list[str]] = []
+
+        def fake_run(command, **kwargs):  # type: ignore[no-untyped-def]
+            captured.append(command)
+            return subprocess.CompletedProcess(command, returncode=0, stdout="ok", stderr="")
+
+        monkeypatch.setattr("ctld_launcher.ui.main_window.subprocess.run", fake_run)
+
+        window._on_test_connection()
+
+        assert captured[0][1:4] == ["-m", "2", "-r"]
+    finally:
+        window.stop_all()
+
+
+def test_test_connection_uses_direct_serial_when_not_running(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot, test_executable_resolver=lambda kind: "rigctl")
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    profile.port = "/dev/ttyUSB0"
+
+    captured: list[list[str]] = []
+
+    def fake_run(command, **kwargs):  # type: ignore[no-untyped-def]
+        captured.append(command)
+        return subprocess.CompletedProcess(command, returncode=0, stdout="ok", stderr="")
+
+    monkeypatch.setattr("ctld_launcher.ui.main_window.subprocess.run", fake_run)
+
+    window._on_test_connection()
+
+    assert captured[0][1:4] == ["-m", str(profile.model_id), "-r"]
 
 
 def test_language_switch_retranslates_widgets(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]

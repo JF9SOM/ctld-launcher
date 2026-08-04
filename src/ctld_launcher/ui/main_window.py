@@ -49,7 +49,12 @@ from ctld_launcher.core.hamlib_locator import (
     find_test_executable,
 )
 from ctld_launcher.core.hamlib_models import default_model_id, models_by_manufacturer
-from ctld_launcher.core.process_manager import CtldProcess, build_command, build_test_command
+from ctld_launcher.core.process_manager import (
+    CtldProcess,
+    build_command,
+    build_test_command,
+    build_test_command_via_daemon,
+)
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.core.serial_ports import list_serial_ports
 from ctld_launcher.core.subprocess_utils import NO_WINDOW_FLAGS
@@ -1135,7 +1140,10 @@ class MainWindow(QMainWindow):
             self._set_test_connection_result(_("✗ {error}").format(error=exc), success=False)
             return
 
-        command = build_test_command(executable, profile)
+        if self.is_running(profile.id):
+            command = build_test_command_via_daemon(executable, profile)
+        else:
+            command = build_test_command(executable, profile)
         self._test_connection_button.setEnabled(False)
         self._test_connection_button.setText(_("Testing…"))
         self._test_connection_button.setStyleSheet("")

@@ -89,6 +89,25 @@ def build_test_command(executable: str, profile: Profile) -> list[str]:
     return command
 
 
+def build_test_command_via_daemon(executable: str, profile: Profile) -> list[str]:
+    """Test connectivity through an already-running rigctld/rotctld instead of
+    opening the serial port directly.
+
+    Once the daemon is running it already holds the port open, so a second,
+    direct rigctl/rotctl open of the same serial port fails — on Windows a
+    COM port is exclusive, so this isn't just a race, it always fails. Model
+    2 is Hamlib's built-in "NET rigctl/rotctl" backend, which talks to a
+    running daemon over TCP instead of a serial line, so it tests through the
+    daemon rather than fighting it for the port.
+    """
+    host = profile.listen_address
+    if not host or host == "0.0.0.0":  # noqa: S104 (comparison, not a bind)
+        host = "127.0.0.1"
+    command = [executable, "-m", "2", "-r", f"{host}:{profile.listen_port}"]
+    command.append("f" if profile.kind == ProfileKind.RIG else "p")
+    return command
+
+
 class CtldProcess:
     """Owns the lifecycle of a single rigctld/rotctld subprocess."""
 

@@ -108,6 +108,7 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 
 - **機種名プルダウンが`model_id`とずれて表示される**(実機テストで発覚): `MainWindow._populate_model_combo()`が、メーカーの機種一覧を並べ直すだけで「保存されている`model_id`に一致する項目を選び直す」処理を欠いていたため、フォーム再描画(プロファイル選択し直し・言語切替・USBホットプラグでの再接続時など)のたびにQtの標準動作でリストの先頭の機種が表示されてしまっていた(`profile.model_id`自体は正しいまま、表示だけがずれる)。`_populate_model_combo()`に`model_id`引数を追加し、`findData(model_id)`で明示的に選択し直すことで解決。
 - **Windowsで「起動」を押すと黒いコンソールウィンドウが開いたままになる**(実機テストで発覚、Linux/macOSでは再現しない): `rigctld`/`rotctld`/`rigctl`/`rotctl`はコンソールサブシステムの実行ファイルなので、Windowsでは`subprocess.Popen`/`subprocess.run`で素朴に起動すると新規コンソールウィンドウが自動的に開いてしまう(Linux/macOSにはこの概念自体がない)。閉じるとプロセスも道連れで終了し、最小化してもタスクバーに残ってしまう。`core/subprocess_utils.py`の`NO_WINDOW_FLAGS`(Windowsでのみ`subprocess.CREATE_NO_WINDOW`、それ以外は`0`)を、`CtldProcess.start()`・接続テスト・`--list`(機種一覧取得)の3箇所すべての`creationflags`に渡すことで解決。stdout/stderrのパイプ経由のログ取得には影響しない。
+- **`rigctld`起動後は「接続テスト」ボタンが失敗する**(実機テストで発覚、Windows。COMポートは排他制御のため特に顕著だが、シリアルポートを掴む仕組み自体はOS共通): 起動済みの`rigctld`/`rotctld`が既にシリアルポートを開いているため、そのまま`rigctl`/`rotctl`で同じポートに直接アクセスしようとすると失敗する。`process_manager.build_test_command_via_daemon()`を追加し、対象プロファイルが起動中(`MainWindow.is_running()`)なら、シリアルポートに直接アクセスする代わりにHamlib組み込みのNET rigctl/rotctlバックエンド(`-m 2 -r <listen_address>:<listen_port>`)経由で稼働中のデーモン自体に問い合わせるよう`_on_test_connection()`を切り替えて解決(`listen_address`が`0.0.0.0`の場合は`127.0.0.1`に読み替え)。停止中は従来通り直接シリアルアクセスの`build_test_command()`を使う。
 
 ## 関連プロジェクト
 
