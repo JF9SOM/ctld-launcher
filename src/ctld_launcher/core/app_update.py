@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import platform
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -23,10 +24,25 @@ import urllib.request
 from pathlib import Path
 from typing import Literal
 
+import certifi
 from PySide6.QtCore import QThread, Signal
 
 GITHUB_API = "https://api.github.com/repos/JF9SOM/ctld-launcher/releases/latest"
 GITHUB_RELEASES = "https://github.com/JF9SOM/ctld-launcher/releases"
+
+# Frozen macOS builds don't reliably have a system CA bundle Python's ssl
+# module can find on its own (confirmed on real hardware: urlopen() raised
+# "CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate" with
+# working internet) -- python.org/PyInstaller builds skip the "Install
+# Certificates.command" step that normally sets this up. Installing an
+# opener with an explicit certifi CA bundle fixes both urlopen() below and
+# urlretrieve() in UpdateInstallWorker (which has no context= parameter of
+# its own to pass this to), independent of whatever the host OS has.
+urllib.request.install_opener(
+    urllib.request.build_opener(
+        urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where()))
+    )
+)
 
 # What the installer left the caller needing to do, so the UI can pick the
 # right restart wording (see core docstring above and CLAUDE.md): Linux/

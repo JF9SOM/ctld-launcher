@@ -66,9 +66,16 @@ Section "Install" SecMain
   ; only ctld-launcher.exe leaves them running and still holding their
   ; Hamlib DLLs locked -- confirmed on real hardware: overwriting those
   ; DLLs fails ("skip/ignore" prompts) unless these are killed too.
-  ExecWait 'taskkill /IM "${APP_EXE}" /F' $0
-  ExecWait 'taskkill /IM "rigctld.exe" /F' $0
-  ExecWait 'taskkill /IM "rotctld.exe" /F' $0
+  ; nsExec (bundled with NSIS) runs these hidden -- plain ExecWait would
+  ; briefly flash taskkill.exe's own console window for each call (reported
+  ; on real hardware: three quick console flashes during install/uninstall,
+  ; one per taskkill).
+  nsExec::Exec 'taskkill /IM "${APP_EXE}" /F'
+  Pop $0
+  nsExec::Exec 'taskkill /IM "rigctld.exe" /F'
+  Pop $0
+  nsExec::Exec 'taskkill /IM "rotctld.exe" /F'
+  Pop $0
 
   SetOutPath "$INSTDIR"
   File /r "..\dist\ctld-launcher\"
@@ -103,10 +110,14 @@ SectionEnd
 ; ---- Uninstall section -------------------------------------------------
 Section "Uninstall"
 
-  ; Kill running instances before removing files (see install section above)
-  ExecWait 'taskkill /IM "${APP_EXE}" /F' $0
-  ExecWait 'taskkill /IM "rigctld.exe" /F' $0
-  ExecWait 'taskkill /IM "rotctld.exe" /F' $0
+  ; Kill running instances before removing files (see install section above
+  ; for why nsExec, not plain ExecWait, is used here)
+  nsExec::Exec 'taskkill /IM "${APP_EXE}" /F'
+  Pop $0
+  nsExec::Exec 'taskkill /IM "rigctld.exe" /F'
+  Pop $0
+  nsExec::Exec 'taskkill /IM "rotctld.exe" /F'
+  Pop $0
 
   ; Remove the HKCU autostart Run value this app may have registered
   ; (see src/ctld_launcher/core/autostart.py) — best-effort, ignored if absent.

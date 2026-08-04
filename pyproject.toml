@@ -28,6 +28,7 @@ dependencies = [
     "PySide6>=6.6",
     "pyserial>=3.5",
     "platformdirs>=4.2",
+    "certifi>=2024.2.2",
 ]
 
 [project.optional-dependencies]
