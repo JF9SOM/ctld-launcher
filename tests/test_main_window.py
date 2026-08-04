@@ -579,9 +579,7 @@ def test_manual_check_up_to_date_shows_info_dialog(tmp_path, qtbot, monkeypatch)
     window = _make_window(tmp_path, qtbot)
 
     info_calls = []
-    monkeypatch.setattr(
-        QMessageBox, "information", lambda *a, **k: info_calls.append(True)
-    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: info_calls.append(True))
     window._update_check_is_manual = True
     window._on_update_check_result("5.0.0", "https://example.com/asset")
 
@@ -620,9 +618,7 @@ def test_clicking_idle_button_starts_a_manual_check(tmp_path, qtbot, monkeypatch
     window = _make_window(tmp_path, qtbot)
 
     started = []
-    monkeypatch.setattr(
-        window, "check_for_updates", lambda manual=False: started.append(manual)
-    )
+    monkeypatch.setattr(window, "check_for_updates", lambda manual=False: started.append(manual))
     window._on_update_button_clicked()
 
     assert started == [True]
