@@ -76,8 +76,8 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 ## アプリ自身の自動更新チェック
 
 - `core/app_update.py` — 姉妹プロジェクトFBSAT59の`ui/app_update_dialog.py`(実際にAppImage/NSIS/dmgの自動更新が動作している実績あり)を土台に、ctld-launcher向けに移植したもの。
-  - **チェック**: `main.py`の起動処理から`MainWindow.check_for_updates()`を1回呼び出し、バックグラウンドスレッド(`UpdateCheckWorker`)でGitHub Releases APIを問い合わせる。失敗(オフライン等)や既に最新の場合は何も表示せず静かに終了する。純粋関数`fetch_latest_release()`/`is_newer_version()`/`asset_name()`はQt非依存で単体テスト可能(`tests/test_app_update.py`)。
-  - **UI**: サイドバー左上、アプリバージョン表示のすぐ下にHamlibバージョン(`bundled_hamlib_version()`、`hamlib-bundle/version.txt`を読むだけで追加のビルド対応不要)、さらにその下に新バージョンがあるときだけ「↑ vX.Y.Zが利用可能です」というクリック可能な緑色のリンク風ボタン(`QToolButton`)を表示する。
+  - **チェック**: `main.py`の起動処理から`MainWindow.check_for_updates()`を1回呼び出し(`manual=False`)、バックグラウンドスレッド(`UpdateCheckWorker`)でGitHub Releases APIを問い合わせる。失敗(オフライン等)や既に最新の場合はダイアログを出さず静かにボタンを待機状態へ戻す(起動のたびにネットワーク不調で驚かせないため)。純粋関数`fetch_latest_release()`/`is_newer_version()`/`asset_name()`はQt非依存で単体テスト可能(`tests/test_app_update.py`)。
+  - **UI**: サイドバー左上、アプリバージョン表示・Hamlibバージョン(`bundled_hamlib_version()`)のすぐ下に、常時表示のボタン(`QToolButton`)を置く。状態は`MainWindow._update_button_state`で管理: `idle`(「アップデートを確認」— クリックで`check_for_updates(manual=True)`を実行)→`checking`(「アップデートを確認中…」)→ 新バージョンがあれば`available`(「↑ vX.Y.Zが利用可能です」— クリックでダウンロード+インストール開始)、無ければ`idle`に戻る。手動チェック(`manual=True`)時だけ結果をダイアログでも報告する(`QMessageBox.information`/`warning`) — 起動時の自動チェックはボタンの見た目だけで完結し、ポップアップは出さない。
   - **クリック時の動作**(確認ダイアログの後、`UpdateInstallWorker`がダウンロード+インストール):
     - Linux(AppImage): 実行中のファイルをその場でatomicに置き換え(Linuxは実行中でもファイル置き換えが可能)。
     - macOS(dmg): マウントして`.app`を、現在実際に動いている`.app`の場所(`sys.executable`から逆算、`/Applications`固定ではない)にコピーで上書き。

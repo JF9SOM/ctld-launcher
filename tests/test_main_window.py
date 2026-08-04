@@ -380,6 +380,7 @@ def test_language_switch_retranslates_widgets(tmp_path, qtbot) -> None:  # type:
         assert window._start_button.text() == "起動"
         assert window._model_group.title() == "モデル"
         assert window._manufacturer_label.text() == "メーカー"
+        assert window._update_button.text() == "アップデートを確認"
         # profile.model_id / port / etc. must survive the retranslation
         assert window.profiles[0].model_id == 1
     finally:
@@ -526,9 +527,13 @@ def test_hamlib_version_label_hidden_when_not_bundled(tmp_path, qtbot) -> None: 
     assert window._hamlib_version_label.isHidden() is True
 
 
-def test_update_button_hidden_by_default(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+def test_update_button_shown_idle_by_default(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    # Regression test: the button used to stay hidden until an automatic
+    # startup check found a newer version, with no way to check on demand.
+    # It's now always visible so the user can trigger a check anytime.
     window = _make_window(tmp_path, qtbot)
-    assert window._update_button.isHidden() is True
+    assert window._update_button.isHidden() is False
+    assert window._update_button.text() == "Check for updates"
 
 
 def _mock_current_version(monkeypatch, version: str = "0.1.0") -> None:  # type: ignore[no-untyped-def]
@@ -551,15 +556,76 @@ def test_update_check_result_shows_button_for_newer_version(tmp_path, qtbot, mon
 
     assert window._update_button.isHidden() is False
     assert "9.9.9" in window._update_button.text()
+    assert window._update_button_state == "available"
 
 
-def test_update_check_result_ignores_older_or_equal_version(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_update_check_result_resets_to_idle_for_older_or_equal_version(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
     _mock_current_version(monkeypatch, "5.0.0")
     window = _make_window(tmp_path, qtbot)
 
     window._on_update_check_result("5.0.0", "https://example.com/asset")
 
-    assert window._update_button.isHidden() is True
+    assert window._update_button.isHidden() is False
+    assert window._update_button.text() == "Check for updates"
+    assert window._update_button_state == "idle"
+
+
+def test_manual_check_up_to_date_shows_info_dialog(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    _mock_current_version(monkeypatch, "5.0.0")
+    window = _make_window(tmp_path, qtbot)
+
+    info_calls = []
+    monkeypatch.setattr(
+        QMessageBox, "information", lambda *a, **k: info_calls.append(True)
+    )
+    window._update_check_is_manual = True
+    window._on_update_check_result("5.0.0", "https://example.com/asset")
+
+    assert info_calls == [True]
+    assert window._update_button_state == "idle"
+
+
+def test_manual_check_not_found_shows_warning_dialog(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    window = _make_window(tmp_path, qtbot)
+
+    warning_calls = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warning_calls.append(True))
+    window._update_check_is_manual = True
+    window._on_update_check_not_found()
+
+    assert warning_calls == [True]
+    assert window._update_button_state == "idle"
+
+
+def test_automatic_check_not_found_stays_silent(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from PySide6.QtWidgets import QMessageBox
+
+    window = _make_window(tmp_path, qtbot)
+
+    warning_calls = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warning_calls.append(True))
+    window._on_update_check_not_found()
+
+    assert warning_calls == []
+    assert window._update_button_state == "idle"
+
+
+def test_clicking_idle_button_starts_a_manual_check(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+
+    started = []
+    monkeypatch.setattr(
+        window, "check_for_updates", lambda manual=False: started.append(manual)
+    )
+    window._on_update_button_clicked()
+
+    assert started == [True]
 
 
 def test_update_button_click_confirms_and_starts_download(tmp_path, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]

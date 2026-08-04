@@ -274,6 +274,8 @@ class MainWindow(QMainWindow):
         self._updating_form = False
         self._update_latest_version: str | None = None
         self._update_download_url: str | None = None
+        self._update_button_state = "idle"
+        self._update_check_is_manual = False
         self._update_check_worker: UpdateCheckWorker | None = None
         self._update_install_worker: UpdateInstallWorker | None = None
 
@@ -320,7 +322,7 @@ class MainWindow(QMainWindow):
             "background: transparent; padding: 0; }"
         )
         self._update_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._update_button.setVisible(False)
+        self._update_button.setText(_("Check for updates"))
         self._update_button.clicked.connect(self._on_update_button_clicked)
         layout.addWidget(self._update_button)
 
@@ -792,14 +794,12 @@ class MainWindow(QMainWindow):
         selection from the profile's actual stored values, so it isn't
         lost when e.g. "(Not set)"/"(未指定)" changes text.
         """
-        if (
-            self._update_download_url
-            and self._update_latest_version
-            and self._update_button.isEnabled()
-        ):
+        if self._update_button_state == "available" and self._update_latest_version:
             self._update_button.setText(
                 _("↑ Update to v{ver} available").format(ver=self._update_latest_version)
             )
+        elif self._update_button_state == "idle":
+            self._update_button.setText(_("Check for updates"))
         self._add_rig_button.setText(_("+ Rig"))
         self._add_rotator_button.setText(_("+ Rotator"))
         self._remove_button.setText(_("Remove"))
@@ -1327,26 +1327,65 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------ #
     # App self-update (see core/app_update.py)
     # ------------------------------------------------------------------ #
-    def check_for_updates(self) -> None:
-        """Kick off a background GitHub Releases check. Silent on failure
-        or when already up to date; called once from main.py after startup
-        so a slow/failed network check never delays showing the window.
+    def check_for_updates(self, manual: bool = False) -> None:
+        """Kick off a background GitHub Releases check.
+
+        Called once from main.py after startup (manual=False) so a slow/
+        failed network check never delays showing the window, and again on
+        every click of the sidebar button while it's in its idle "Check for
+        updates" state (manual=True). Only manual checks report failure or
+        "already up to date" back to the user via a dialog -- the automatic
+        startup check stays silent either way, exactly as before.
         """
+        self._update_check_is_manual = manual
+        self._update_button_state = "checking"
+        self._update_button.setEnabled(False)
+        self._update_button.setText(_("Checking for updates…"))
         worker = UpdateCheckWorker(self)
         worker.result.connect(self._on_update_check_result)
+        worker.not_found.connect(self._on_update_check_not_found)
         worker.start()
         self._update_check_worker = worker
 
+    def _reset_update_button_idle(self) -> None:
+        self._update_button_state = "idle"
+        self._update_button.setText(_("Check for updates"))
+        self._update_button.setEnabled(True)
+
     def _on_update_check_result(self, version: str, url: str) -> None:
         if not is_newer_version(version, get_version()):
+            self._reset_update_button_idle()
+            if self._update_check_is_manual:
+                QMessageBox.information(
+                    self,
+                    _("Check for updates"),
+                    _("You're already using the latest version."),
+                )
             return
         self._update_latest_version = version
         self._update_download_url = url
+        self._update_button_state = "available"
         self._update_button.setText(_("↑ Update to v{ver} available").format(ver=version))
         self._update_button.setEnabled(True)
-        self._update_button.setVisible(True)
+
+    def _on_update_check_not_found(self) -> None:
+        self._reset_update_button_idle()
+        if self._update_check_is_manual:
+            QMessageBox.warning(
+                self,
+                _("Check for updates"),
+                _("Couldn't check for updates. Please check your internet connection."),
+            )
 
     def _on_update_button_clicked(self) -> None:
+        if self._update_button_state == "idle":
+            self.check_for_updates(manual=True)
+            return
+        if self._update_button_state != "available":
+            return
+        self._start_update_install()
+
+    def _start_update_install(self) -> None:
         if self._update_download_url is None or self._update_latest_version is None:
             return
         answer = QMessageBox.question(
@@ -1360,6 +1399,7 @@ class MainWindow(QMainWindow):
         if answer != QMessageBox.StandardButton.Yes:
             return
 
+        self._update_button_state = "downloading"
         self._update_button.setEnabled(False)
         self._update_button.setText(_("Downloading…"))
         worker = UpdateInstallWorker(self._update_download_url, self._update_latest_version)
@@ -1373,6 +1413,7 @@ class MainWindow(QMainWindow):
 
     def _on_update_install_finished(self, success: bool, outcome: str, message: str) -> None:
         if not success:
+            self._update_button_state = "available"
             self._update_button.setEnabled(True)
             self._update_button.setText(
                 _("↑ Update to v{ver} available").format(ver=self._update_latest_version)
@@ -1387,6 +1428,7 @@ class MainWindow(QMainWindow):
             )
             return
 
+        self._update_button_state = "installed"
         self._update_button.setText(_("✓ Updated — restart to finish"))
 
         if outcome == "installer_launched":

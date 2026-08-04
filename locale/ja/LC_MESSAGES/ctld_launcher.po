@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: ctld-launcher\n"
-"POT-Creation-Date: 2026-08-04 21:22+0900\n"
+"POT-Creation-Date: 2026-08-04 22:33+0900\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -35,27 +35,35 @@ msgstr "トレース (-vvvvv)"
 msgid "(Not set)"
 msgstr "(未指定)"
 
-#: src/ctld_launcher/ui/main_window.py:341
+#: src/ctld_launcher/ui/main_window.py:325
+#: src/ctld_launcher/ui/main_window.py:802
+#: src/ctld_launcher/ui/main_window.py:1352
+#: src/ctld_launcher/ui/main_window.py:1361
+#: src/ctld_launcher/ui/main_window.py:1376
+msgid "Check for updates"
+msgstr "アップデートを確認"
+
+#: src/ctld_launcher/ui/main_window.py:343
 #: src/ctld_launcher/ui/main_window.py:803
 msgid "+ Rig"
 msgstr "+ リグ"
 
-#: src/ctld_launcher/ui/main_window.py:343
+#: src/ctld_launcher/ui/main_window.py:345
 #: src/ctld_launcher/ui/main_window.py:804
 msgid "+ Rotator"
 msgstr "+ ローテーター"
 
-#: src/ctld_launcher/ui/main_window.py:353
+#: src/ctld_launcher/ui/main_window.py:355
 #: src/ctld_launcher/ui/main_window.py:805
 msgid "Remove"
 msgstr "削除"
 
-#: src/ctld_launcher/ui/main_window.py:357
+#: src/ctld_launcher/ui/main_window.py:359
 #: src/ctld_launcher/ui/main_window.py:806
 msgid "Start at login"
 msgstr "スタートアップ時に起動"
 
-#: src/ctld_launcher/ui/main_window.py:359
+#: src/ctld_launcher/ui/main_window.py:361
 #: src/ctld_launcher/ui/main_window.py:808
 msgid ""
 "Starts this app itself in the tray at login. To also start individual "
@@ -65,12 +73,12 @@ msgstr ""
 "PCログイン時にこのアプリ自体をトレイに常駐起動します。個別のプロファイルも自"
 "動起動したい場合は、左の一覧の各プロファイル横のトグルもオンにしてください。"
 
-#: src/ctld_launcher/ui/main_window.py:371
+#: src/ctld_launcher/ui/main_window.py:373
 #: src/ctld_launcher/ui/main_window.py:816
 msgid "Minimize to tray"
 msgstr "トレイに最小化"
 
-#: src/ctld_launcher/ui/main_window.py:373
+#: src/ctld_launcher/ui/main_window.py:375
 #: src/ctld_launcher/ui/main_window.py:818
 msgid ""
 "Hides this window; rigctld/rotctld keep running in the background. Click the "
@@ -79,12 +87,12 @@ msgstr ""
 "この画面を隠しますが、rigctld/rotctldはバックグラウンドで動作し続けます。トレ"
 "イアイコンをクリックすると再表示できます。"
 
-#: src/ctld_launcher/ui/main_window.py:381
+#: src/ctld_launcher/ui/main_window.py:383
 #: src/ctld_launcher/ui/main_window.py:823
 msgid "Quit ctld-launcher"
 msgstr "ctld-launcherを終了"
 
-#: src/ctld_launcher/ui/main_window.py:383
+#: src/ctld_launcher/ui/main_window.py:385
 #: src/ctld_launcher/ui/main_window.py:825
 msgid ""
 "Stops all running rigctld/rotctld processes and closes the app completely, "
@@ -93,42 +101,42 @@ msgstr ""
 "稼働中のrigctld/rotctldをすべて停止し、トレイアイコンを含めてアプリを完全に終"
 "了します。"
 
-#: src/ctld_launcher/ui/main_window.py:400
+#: src/ctld_launcher/ui/main_window.py:402
 #: src/ctld_launcher/ui/main_window.py:831
 msgid "Enter any name you like for this profile."
 msgstr "任意のプロファイル名を入力して下さい。"
 
-#: src/ctld_launcher/ui/main_window.py:413
+#: src/ctld_launcher/ui/main_window.py:415
 #: src/ctld_launcher/ui/main_window.py:832
 msgid "Command"
 msgstr "実行中のコマンド"
 
-#: src/ctld_launcher/ui/main_window.py:421
+#: src/ctld_launcher/ui/main_window.py:423
 #: src/ctld_launcher/ui/main_window.py:833
 msgid "Start"
 msgstr "起動"
 
-#: src/ctld_launcher/ui/main_window.py:423
+#: src/ctld_launcher/ui/main_window.py:425
 #: src/ctld_launcher/ui/main_window.py:834
 msgid "Stop"
 msgstr "停止"
 
-#: src/ctld_launcher/ui/main_window.py:425
+#: src/ctld_launcher/ui/main_window.py:427
 #: src/ctld_launcher/ui/main_window.py:835
 msgid "Restart"
 msgstr "再起動"
 
-#: src/ctld_launcher/ui/main_window.py:432
+#: src/ctld_launcher/ui/main_window.py:434
 #: src/ctld_launcher/ui/main_window.py:836
 msgid "Log"
 msgstr "ログ"
 
-#: src/ctld_launcher/ui/main_window.py:443
+#: src/ctld_launcher/ui/main_window.py:445
 #: src/ctld_launcher/ui/main_window.py:838
 msgid "Model"
 msgstr "モデル"
 
-#: src/ctld_launcher/ui/main_window.py:447
+#: src/ctld_launcher/ui/main_window.py:449
 #: src/ctld_launcher/ui/main_window.py:841
 msgid ""
 "Select the manufacturer of your rig/rotator. You can type to filter the list."
@@ -136,12 +144,12 @@ msgstr ""
 "無線機/ローテーターのメーカーを選択してください。入力して絞り込むこともできま"
 "す。"
 
-#: src/ctld_launcher/ui/main_window.py:452
+#: src/ctld_launcher/ui/main_window.py:454
 #: src/ctld_launcher/ui/main_window.py:844
 msgid "Select the model of your rig/rotator."
 msgstr "無線機/ローテーターの機種を選択してください。"
 
-#: src/ctld_launcher/ui/main_window.py:458
+#: src/ctld_launcher/ui/main_window.py:460
 #: src/ctld_launcher/ui/main_window.py:847
 msgid ""
 "Hamlib's numeric model ID. Filled in automatically when you pick a "
@@ -151,39 +159,39 @@ msgstr ""
 "Hamlibの機種番号です。メーカー・機種を選ぶと自動入力されます。リストにない機"
 "種は直接入力できます。"
 
-#: src/ctld_launcher/ui/main_window.py:465
+#: src/ctld_launcher/ui/main_window.py:467
 #: src/ctld_launcher/ui/main_window.py:839
 msgid "Manufacturer"
 msgstr "メーカー"
 
-#: src/ctld_launcher/ui/main_window.py:466
+#: src/ctld_launcher/ui/main_window.py:468
 #: src/ctld_launcher/ui/main_window.py:843
 msgid "Model name"
 msgstr "機種"
 
-#: src/ctld_launcher/ui/main_window.py:467
+#: src/ctld_launcher/ui/main_window.py:469
 #: src/ctld_launcher/ui/main_window.py:845
 msgid "Model ID"
 msgstr "モデルID"
 
-#: src/ctld_launcher/ui/main_window.py:477
+#: src/ctld_launcher/ui/main_window.py:479
 #: src/ctld_launcher/ui/main_window.py:854
 msgid "Connection"
 msgstr "接続"
 
-#: src/ctld_launcher/ui/main_window.py:481
-#: src/ctld_launcher/ui/main_window.py:619
+#: src/ctld_launcher/ui/main_window.py:483
+#: src/ctld_launcher/ui/main_window.py:621
 #: src/ctld_launcher/ui/main_window.py:855
 #: src/ctld_launcher/ui/main_window.py:912
 msgid "Port"
 msgstr "ポート"
 
-#: src/ctld_launcher/ui/main_window.py:485
+#: src/ctld_launcher/ui/main_window.py:487
 #: src/ctld_launcher/ui/main_window.py:856
 msgid "Select the serial port your rig/rotator is connected to."
 msgstr "無線機/ローテーターが接続されているシリアルポートを選択してください。"
 
-#: src/ctld_launcher/ui/main_window.py:490
+#: src/ctld_launcher/ui/main_window.py:492
 #: src/ctld_launcher/ui/main_window.py:858
 msgid ""
 "Re-scan connected serial ports. Click this if you plugged in the device "
@@ -192,24 +200,24 @@ msgstr ""
 "接続されているシリアルポートを再検出します。ソフト起動後にケーブルを挿した場"
 "合はここを押してください。"
 
-#: src/ctld_launcher/ui/main_window.py:498
+#: src/ctld_launcher/ui/main_window.py:500
 #: src/ctld_launcher/ui/main_window.py:863
 msgid "Speed"
 msgstr "速度"
 
-#: src/ctld_launcher/ui/main_window.py:504
+#: src/ctld_launcher/ui/main_window.py:506
 #: src/ctld_launcher/ui/main_window.py:865
 msgid ""
 "Must match the serial speed set on the radio itself, or the connection will "
 "fail."
 msgstr "無線機側で設定されているシリアルスピードに必ず合わせて下さい。"
 
-#: src/ctld_launcher/ui/main_window.py:512
+#: src/ctld_launcher/ui/main_window.py:514
 #: src/ctld_launcher/ui/main_window.py:867
 msgid "Auto-start/stop this profile with this USB device"
 msgstr "USB接続時にこのプロファイルを自動起動・切断時に自動停止"
 
-#: src/ctld_launcher/ui/main_window.py:515
+#: src/ctld_launcher/ui/main_window.py:517
 #: src/ctld_launcher/ui/main_window.py:869
 msgid ""
 "Plug in the device and select its port above first, then turn this on: ctld-"
@@ -222,12 +230,12 @@ msgstr ""
 "イルを起動し、取り外すと自動的に停止します。ctld-launcher自体が起動している間"
 "のみ有効です。"
 
-#: src/ctld_launcher/ui/main_window.py:531
+#: src/ctld_launcher/ui/main_window.py:533
 #: src/ctld_launcher/ui/main_window.py:876
 msgid "ICOM CIV address"
 msgstr "ICOM CIVアドレス"
 
-#: src/ctld_launcher/ui/main_window.py:536
+#: src/ctld_launcher/ui/main_window.py:538
 #: src/ctld_launcher/ui/main_window.py:878
 msgid ""
 "For ICOM rigs, enter the CIV address exactly as shown on the radio (e.g. "
@@ -236,13 +244,13 @@ msgstr ""
 "ICOMリグの場合、無線機側に表示されているCIVアドレスをそのまま入力して下さい"
 "(例: A2)。他社リグの場合は入力不要です。"
 
-#: src/ctld_launcher/ui/main_window.py:546
+#: src/ctld_launcher/ui/main_window.py:548
 #: src/ctld_launcher/ui/main_window.py:883
 #: src/ctld_launcher/ui/main_window.py:1193
 msgid "Test connection"
 msgstr "接続テスト"
 
-#: src/ctld_launcher/ui/main_window.py:548
+#: src/ctld_launcher/ui/main_window.py:550
 #: src/ctld_launcher/ui/main_window.py:885
 msgid ""
 "Query once via rigctl/rotctl to check the port, speed, and model settings"
@@ -250,18 +258,18 @@ msgstr ""
 "rigctl/rotctlで一度だけ問い合わせて、ポート・速度・機種設定が正しいか確認しま"
 "す"
 
-#: src/ctld_launcher/ui/main_window.py:557
+#: src/ctld_launcher/ui/main_window.py:559
 #: src/ctld_launcher/ui/main_window.py:887
 msgid "Advanced (data bits, parity, flow control)"
 msgstr "詳細設定(データビット・パリティ・フロー制御)"
 
-#: src/ctld_launcher/ui/main_window.py:559
+#: src/ctld_launcher/ui/main_window.py:561
 #: src/ctld_launcher/ui/main_window.py:889
 msgid ""
 "Usually not needed. Only for rigs/rotators that require non-default settings."
 msgstr "通常は変更不要です。特殊な機種でのみ使用します。"
 
-#: src/ctld_launcher/ui/main_window.py:567
+#: src/ctld_launcher/ui/main_window.py:569
 #: src/ctld_launcher/ui/main_window.py:891
 msgid ""
 "Usually fine left as \"(Not set)\". Only change if your rig/rotator's manual "
@@ -270,37 +278,37 @@ msgstr ""
 "通常は「(未指定)」のままで問題ありません。無線機/ローテーターの取扱説明書に指"
 "定がある場合のみ変更してください。"
 
-#: src/ctld_launcher/ui/main_window.py:590
+#: src/ctld_launcher/ui/main_window.py:592
 #: src/ctld_launcher/ui/main_window.py:895
 msgid "Data bits"
 msgstr "データビット"
 
-#: src/ctld_launcher/ui/main_window.py:591
+#: src/ctld_launcher/ui/main_window.py:593
 #: src/ctld_launcher/ui/main_window.py:897
 msgid "Stop bits"
 msgstr "ストップビット"
 
-#: src/ctld_launcher/ui/main_window.py:592
+#: src/ctld_launcher/ui/main_window.py:594
 #: src/ctld_launcher/ui/main_window.py:899
 msgid "Parity"
 msgstr "パリティ"
 
-#: src/ctld_launcher/ui/main_window.py:593
+#: src/ctld_launcher/ui/main_window.py:595
 #: src/ctld_launcher/ui/main_window.py:901
 msgid "Flow control"
 msgstr "フロー制御"
 
-#: src/ctld_launcher/ui/main_window.py:607
+#: src/ctld_launcher/ui/main_window.py:609
 #: src/ctld_launcher/ui/main_window.py:904
 msgid "Network"
 msgstr "ネットワーク"
 
-#: src/ctld_launcher/ui/main_window.py:609
+#: src/ctld_launcher/ui/main_window.py:611
 #: src/ctld_launcher/ui/main_window.py:905
 msgid "Listen address"
 msgstr "待受アドレス"
 
-#: src/ctld_launcher/ui/main_window.py:613
+#: src/ctld_launcher/ui/main_window.py:615
 #: src/ctld_launcher/ui/main_window.py:907
 msgid ""
 "Usually leave as 127.0.0.1 (only software on this same PC can connect). "
@@ -309,12 +317,12 @@ msgstr ""
 "通常は127.0.0.1のままにしてください(このPC内のソフトからのみ接続可能)。LAN内"
 "の他のPCからも接続させたい場合は0.0.0.0に変更してください。"
 
-#: src/ctld_launcher/ui/main_window.py:629
+#: src/ctld_launcher/ui/main_window.py:631
 #: src/ctld_launcher/ui/main_window.py:914
 msgid "Debug"
 msgstr "デバッグ"
 
-#: src/ctld_launcher/ui/main_window.py:634
+#: src/ctld_launcher/ui/main_window.py:636
 #: src/ctld_launcher/ui/main_window.py:916
 msgid ""
 "Raise this for more detailed logs. Leave as \"Normal\" unless "
@@ -323,12 +331,12 @@ msgstr ""
 "詳細なログを見たい場合に上げてください。トラブルがなければ「通常」のままで問"
 "題ありません。"
 
-#: src/ctld_launcher/ui/main_window.py:638
+#: src/ctld_launcher/ui/main_window.py:640
 #: src/ctld_launcher/ui/main_window.py:918
 msgid "Log file path (optional)"
 msgstr "ログファイルパス(任意)"
 
-#: src/ctld_launcher/ui/main_window.py:640
+#: src/ctld_launcher/ui/main_window.py:642
 #: src/ctld_launcher/ui/main_window.py:920
 msgid ""
 "Save rigctld/rotctld's output to this file, if you want a record of it. The "
@@ -337,41 +345,41 @@ msgstr ""
 "rigctld/rotctldの出力をファイルに保存したい場合に指定してください。空欄でも動"
 "作します。"
 
-#: src/ctld_launcher/ui/main_window.py:646
+#: src/ctld_launcher/ui/main_window.py:648
 #: src/ctld_launcher/ui/main_window.py:925
 msgid "Browse…"
 msgstr "参照…"
 
-#: src/ctld_launcher/ui/main_window.py:654
+#: src/ctld_launcher/ui/main_window.py:656
 #: src/ctld_launcher/ui/main_window.py:927
 msgid "Extra options (advanced)"
 msgstr "追加オプション(上級者向け)"
 
-#: src/ctld_launcher/ui/main_window.py:658
+#: src/ctld_launcher/ui/main_window.py:660
 #: src/ctld_launcher/ui/main_window.py:929
 msgid "Additional command-line options passed to rigctld/rotctld (advanced)."
 msgstr "rigctld/rotctldに渡す追加のコマンドラインオプション(上級者向け)。"
 
-#: src/ctld_launcher/ui/main_window.py:690
+#: src/ctld_launcher/ui/main_window.py:692
 #: src/ctld_launcher/ui/main_window.py:815
 msgid "Start this profile automatically when the app launches"
 msgstr "アプリ起動時にこのプロファイルも自動的に起動する"
 
-#: src/ctld_launcher/ui/main_window.py:732
+#: src/ctld_launcher/ui/main_window.py:734
 msgid "New Rig"
 msgstr "新しいリグ"
 
-#: src/ctld_launcher/ui/main_window.py:734
+#: src/ctld_launcher/ui/main_window.py:736
 msgid "New Rotator"
 msgstr "新しいローテーター"
 
-#: src/ctld_launcher/ui/main_window.py:764
+#: src/ctld_launcher/ui/main_window.py:766
 msgid "Couldn't set autostart"
 msgstr "自動起動の設定に失敗しました"
 
-#: src/ctld_launcher/ui/main_window.py:801
-#: src/ctld_launcher/ui/main_window.py:1345
-#: src/ctld_launcher/ui/main_window.py:1378
+#: src/ctld_launcher/ui/main_window.py:799
+#: src/ctld_launcher/ui/main_window.py:1368
+#: src/ctld_launcher/ui/main_window.py:1419
 msgid "↑ Update to v{ver} available"
 msgstr "↑ v{ver}が利用可能です"
 
@@ -443,11 +451,23 @@ msgstr "ログファイルを選択"
 msgid "Can't start"
 msgstr "起動できません"
 
-#: src/ctld_launcher/ui/main_window.py:1354
+#: src/ctld_launcher/ui/main_window.py:1343
+msgid "Checking for updates…"
+msgstr "アップデートを確認中…"
+
+#: src/ctld_launcher/ui/main_window.py:1362
+msgid "You're already using the latest version."
+msgstr "既に最新バージョンです。"
+
+#: src/ctld_launcher/ui/main_window.py:1377
+msgid "Couldn't check for updates. Please check your internet connection."
+msgstr "アップデートを確認できませんでした。インターネット接続をご確認ください。"
+
+#: src/ctld_launcher/ui/main_window.py:1393
 msgid "Update ctld-launcher"
 msgstr "ctld-launcherを更新"
 
-#: src/ctld_launcher/ui/main_window.py:1355
+#: src/ctld_launcher/ui/main_window.py:1394
 msgid ""
 "Download and install ctld-launcher v{ver} now? The app will need to restart "
 "to finish."
@@ -455,15 +475,15 @@ msgstr ""
 "ctld-launcher v{ver}を今すぐダウンロードしてインストールしますか？完了にはア"
 "プリの再起動が必要です。"
 
-#: src/ctld_launcher/ui/main_window.py:1364
+#: src/ctld_launcher/ui/main_window.py:1404
 msgid "Downloading…"
 msgstr "ダウンロード中…"
 
-#: src/ctld_launcher/ui/main_window.py:1382
+#: src/ctld_launcher/ui/main_window.py:1423
 msgid "Update failed"
 msgstr "更新に失敗しました"
 
-#: src/ctld_launcher/ui/main_window.py:1383
+#: src/ctld_launcher/ui/main_window.py:1424
 msgid ""
 "Couldn't install the update: {error}\n"
 "\n"
@@ -473,16 +493,16 @@ msgstr ""
 "\n"
 "{url} から手動でダウンロードすることもできます。"
 
-#: src/ctld_launcher/ui/main_window.py:1390
+#: src/ctld_launcher/ui/main_window.py:1432
 msgid "✓ Updated — restart to finish"
 msgstr "✓ 更新済み — 再起動して適用"
 
-#: src/ctld_launcher/ui/main_window.py:1395
-#: src/ctld_launcher/ui/main_window.py:1406
+#: src/ctld_launcher/ui/main_window.py:1437
+#: src/ctld_launcher/ui/main_window.py:1448
 msgid "Update ready"
 msgstr "更新の準備ができました"
 
-#: src/ctld_launcher/ui/main_window.py:1396
+#: src/ctld_launcher/ui/main_window.py:1438
 msgid ""
 "The installer has started. ctld-launcher needs to close now so it can finish "
 "installing."
@@ -490,7 +510,7 @@ msgstr ""
 "インストーラーが起動しました。インストールを完了するには、ctld-launcherを今す"
 "ぐ終了する必要があります。"
 
-#: src/ctld_launcher/ui/main_window.py:1407
+#: src/ctld_launcher/ui/main_window.py:1449
 msgid ""
 "The update is ready. Restart now to finish? Any running profiles will be "
 "stopped.\n"
@@ -500,11 +520,11 @@ msgstr ""
 "停止します。\n"
 "(後で再起動することもできます — 更新自体は既に適用済みです。)"
 
-#: src/ctld_launcher/ui/main_window.py:1487
+#: src/ctld_launcher/ui/main_window.py:1529
 msgid "● Running · PID {pid}"
 msgstr "● 稼働中 · PID {pid}"
 
-#: src/ctld_launcher/ui/main_window.py:1489
+#: src/ctld_launcher/ui/main_window.py:1531
 msgid "○ Stopped"
 msgstr "○ 停止中"
 
