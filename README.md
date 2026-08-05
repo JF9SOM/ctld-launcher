@@ -4,7 +4,7 @@
 
 A GUI launcher for Hamlib's `rigctld` (rig control daemon) and `rotctld` (rotator control daemon) — configure and start them without touching the command line.
 
-Pick your rig/rotator's manufacturer and model, serial port, and baud rate from dropdown menus, and launch `rigctld`/`rotctld` with one click. Hamlib itself (`rigctld`/`rotctld`/`rigctl`/`rotctl`, version 4.7.1) is bundled, so there's no need to install Hamlib separately.
+Pick your rig/rotator's manufacturer and model, serial port, and baud rate from dropdown menus, and launch `rigctld`/`rotctld` with one click. Hamlib itself (`rigctld`/`rotctld`/`rigctl`/`rotctl`, version 4.7.2) is bundled, so there's no need to install Hamlib separately.
 
 Available for Linux, Windows, and macOS.
 

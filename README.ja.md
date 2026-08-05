@@ -4,7 +4,7 @@
 
 Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御デーモン)を、コマンドラインではなくGUIから設定・起動できるランチャーアプリです。
 
-リグ/ローテーターのメーカー・機種、シリアルポート、通信速度などをプルダウンから選ぶだけで`rigctld`/`rotctld`を起動できます。Hamlib本体(`rigctld`/`rotctld`/`rigctl`/`rotctl`、バージョン4.7.1)を同梱しているため、別途Hamlibをインストールする必要はありません。
+リグ/ローテーターのメーカー・機種、シリアルポート、通信速度などをプルダウンから選ぶだけで`rigctld`/`rotctld`を起動できます。Hamlib本体(`rigctld`/`rotctld`/`rigctl`/`rotctl`、バージョン4.7.2)を同梱しているため、別途Hamlibをインストールする必要はありません。
 
 Linux/Windows/macOSに対応しています。
 
