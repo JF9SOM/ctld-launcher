@@ -553,5 +553,13 @@ msgstr "設定を開く…"
 msgid "Quit"
 msgstr "終了"
 
+#: src/ctld_launcher/main.py:42
+msgid "ctld-launcher"
+msgstr "ctld-launcher"
+
+#: src/ctld_launcher/main.py:42
+msgid "ctld-launcher is already running."
+msgstr "ctld-launcherはすでに起動しています。"
+
 #~ msgid "Refresh ports"
 #~ msgstr "ポートを再検出"

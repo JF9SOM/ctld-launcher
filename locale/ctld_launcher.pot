@@ -474,3 +474,11 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
+#: src/ctld_launcher/main.py:42
+msgid "ctld-launcher"
+msgstr ""
+
+#: src/ctld_launcher/main.py:42
+msgid "ctld-launcher is already running."
+msgstr ""
+

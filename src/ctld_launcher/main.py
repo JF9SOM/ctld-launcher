@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
 from ctld_launcher.core.autostart import MINIMIZED_FLAG
-from ctld_launcher.i18n import detect_system_language, set_language
+from ctld_launcher.core.single_instance import SingleInstanceGuard
+from ctld_launcher.i18n import _, detect_system_language, set_language
 from ctld_launcher.ui.main_window import MainWindow
 from ctld_launcher.ui.tray import TrayIcon
 from ctld_launcher.version import get_version
@@ -32,6 +33,14 @@ def main() -> None:
     # string lists (e.g. _debug_levels()) are evaluated lazily inside
     # instance methods for exactly this reason — see i18n.py's docstring.
     set_language(detect_system_language())
+
+    # Kept alive for the app's lifetime: the QLocalServer it holds must
+    # keep listening so later launches can detect this process.
+    guard = SingleInstanceGuard()
+    if not guard.try_acquire():
+        if should_show_on_startup(sys.argv):
+            QMessageBox.warning(None, _("ctld-launcher"), _("ctld-launcher is already running."))
+        sys.exit(0)
 
     window = MainWindow()
     _tray = TrayIcon(window, app)  # kept alive for the app's lifetime
