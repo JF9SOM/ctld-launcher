@@ -1268,6 +1268,7 @@ class MainWindow(QMainWindow):
                 profile.usb_vid = identity.vid
                 profile.usb_pid = identity.pid
                 profile.usb_serial_number = identity.serial_number
+                profile.usb_preferred_device = profile.port
         self._update_usb_hotplug_status(profile)
         self._refresh_usb_tracking()
         profile.civ_address = self._civ_address_edit.text() or None
@@ -1530,6 +1531,7 @@ class MainWindow(QMainWindow):
                 vid=profile.usb_vid,
                 pid=profile.usb_pid,
                 serial_number=profile.usb_serial_number,
+                preferred_device=profile.usb_preferred_device,
             )
             for profile in self._profiles
             if profile.usb_hotplug and profile.usb_vid is not None and profile.usb_pid is not None

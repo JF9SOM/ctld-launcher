@@ -48,6 +48,28 @@ def test_find_port_ignores_serial_number_when_not_captured() -> None:
     assert find_port(identity, ports) == "/dev/ttyUSB0"
 
 
+def test_find_port_prefers_pinned_device_when_ambiguous() -> None:
+    # Two interfaces of the same composite device (e.g. a radio's CAT and
+    # non-CAT USB-serial ports) can report identical vid/pid/serial, so both
+    # match -- the pinned preferred_device should win over enumeration order.
+    identity = UsbIdentity(
+        vid=0x0403, pid=0x6001, serial_number=None, preferred_device="/dev/ttyUSB1"
+    )
+    ports = [
+        FakePortInfo(device="/dev/ttyUSB0", vid=0x0403, pid=0x6001, serial_number=None),
+        FakePortInfo(device="/dev/ttyUSB1", vid=0x0403, pid=0x6001, serial_number=None),
+    ]
+    assert find_port(identity, ports) == "/dev/ttyUSB1"
+
+
+def test_find_port_falls_back_when_pinned_device_not_among_matches() -> None:
+    identity = UsbIdentity(
+        vid=0x0403, pid=0x6001, serial_number=None, preferred_device="/dev/ttyUSB9"
+    )
+    ports = [FakePortInfo(device="/dev/ttyUSB0", vid=0x0403, pid=0x6001, serial_number=None)]
+    assert find_port(identity, ports) == "/dev/ttyUSB0"
+
+
 def test_find_port_returns_none_when_unplugged() -> None:
     identity = UsbIdentity(vid=0x0403, pid=0x6001)
     assert find_port(identity, []) is None

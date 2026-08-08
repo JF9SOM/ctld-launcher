@@ -45,6 +45,7 @@ class Profile:
     usb_vid: int | None = None
     usb_pid: int | None = None
     usb_serial_number: str | None = None
+    usb_preferred_device: str | None = None
 
     @classmethod
     def new_rig(

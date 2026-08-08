@@ -31,6 +31,12 @@ class UsbIdentity:
     vid: int
     pid: int
     serial_number: str | None = None
+    # Device path pinned at the moment the user picked "this is the right
+    # one" (see find_port()) -- some radios (e.g. Yaesu FTX-1/FT-991) expose
+    # their CAT and non-CAT ports as two interfaces of one composite USB
+    # device that report the same (or no) serial number, so vid/pid/serial
+    # alone can't tell the two apart and either could be matched first.
+    preferred_device: str | None = None
 
 
 def identity_for_port(port: str, ports: list[_PortInfo]) -> UsbIdentity | None:
@@ -44,15 +50,26 @@ def identity_for_port(port: str, ports: list[_PortInfo]) -> UsbIdentity | None:
 
 
 def find_port(identity: UsbIdentity, ports: list[_PortInfo]) -> str | None:
-    """Device path currently matching a USB identity, or None if unplugged."""
+    """Device path currently matching a USB identity, or None if unplugged.
+
+    When more than one currently-connected port matches vid/pid(+serial) --
+    two interfaces of the same composite device that can't be told apart by
+    that metadata -- identity.preferred_device (if it's among the matches)
+    breaks the tie instead of silently taking whichever sorts first.
+    """
+    candidates = []
     for info in ports:
         if info.vid == identity.vid and info.pid == identity.pid:
             serial_matches = (
                 identity.serial_number is None or info.serial_number == identity.serial_number
             )
             if serial_matches:
-                return info.device
-    return None
+                candidates.append(info.device)
+    if not candidates:
+        return None
+    if identity.preferred_device in candidates:
+        return identity.preferred_device
+    return candidates[0]
 
 
 class UsbHotplugTracker:
