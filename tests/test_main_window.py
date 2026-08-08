@@ -8,6 +8,7 @@ from ctld_launcher.core.profile import ProfileKind, ProfileStore
 from ctld_launcher.ui.main_window import MainWindow
 
 FAKE_CTLD = Path(__file__).parent / "_fake_ctld.py"
+FAKE_CTLD_CRASH = Path(__file__).parent / "_fake_ctld_crash.py"
 FAKE_RIGCTL = Path(__file__).parent / "_fake_rigctl.py"
 FAKE_HAMLIB_LIST = Path(__file__).parent / "_fake_hamlib_list.py"
 
@@ -366,6 +367,89 @@ def test_test_connection_flags_port_mismatch_without_querying_daemon(  # type: i
         assert "COM4" in window._test_connection_result.text()
         assert "COM5" in window._test_connection_result.text()
         assert "#D9534F" in window._test_connection_button.styleSheet()
+    finally:
+        window.stop_all()
+
+
+def test_auto_restart_on_repeated_health_check_failure(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    # Regression test for the health-check watchdog: a running daemon that
+    # stops responding (e.g. wedged on a stuck USB-serial driver) should be
+    # killed and respawned automatically after enough consecutive failed
+    # checks, without the user needing to notice and click Restart by hand.
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+        first_pid = window._processes[profile.id].pid
+
+        def fake_run(command, **kwargs):  # type: ignore[no-untyped-def]
+            return subprocess.CompletedProcess(command, returncode=1, stdout="", stderr="timeout")
+
+        monkeypatch.setattr("ctld_launcher.ui.main_window.subprocess.run", fake_run)
+
+        for _ in range(2):
+            window._run_health_checks()
+            qtbot.waitUntil(lambda: profile.id not in window._health_check_in_flight, timeout=1000)
+
+        qtbot.waitUntil(
+            lambda: (
+                window.is_running(profile.id) and window._processes[profile.id].pid != first_pid
+            ),
+            timeout=2000,
+        )
+    finally:
+        window.stop_all()
+
+
+def test_crash_restart_on_unexpected_exit(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    # Regression test: a daemon that exits on its own (crash), as opposed to
+    # hanging, should be restarted immediately (no polling delay -- it's an
+    # exit event), same as systemd's Restart=on-failure. Since this fake
+    # ctld crashes on every launch, it should also stop retrying once
+    # CRASH_RESTART_LIMIT is exceeded rather than loop forever.
+    from ctld_launcher.ui.main_window import CRASH_RESTART_LIMIT
+
+    FAKE_CTLD_CRASH.chmod(FAKE_CTLD_CRASH.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD_CRASH))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+
+    try:
+        window._start_profile(profile)
+
+        qtbot.waitUntil(
+            lambda: window._crash_restart_attempts.get(profile.id, 0) == CRASH_RESTART_LIMIT,
+            timeout=2000,
+        )
+        qtbot.waitUntil(lambda: not window.is_running(profile.id), timeout=1000)
+        assert "giving up on automatic restart" in window._log_view.toPlainText()
+    finally:
+        window.stop_all()
+
+
+def test_manual_stop_does_not_trigger_crash_restart(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    # Regression test: _stop_profile() also goes through the same exit path
+    # as a crash (the process ends, CtldProcess fires on_exit either way).
+    # A deliberate Stop must not be reinterpreted as "crashed, restart it".
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+
+        window._stop_profile(profile.id)
+        qtbot.wait(300)
+
+        assert window.is_running(profile.id) is False
     finally:
         window.stop_all()
 

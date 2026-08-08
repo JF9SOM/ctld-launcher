@@ -189,7 +189,15 @@ class CtldProcess:
             process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
-            process.wait()
+            try:
+                process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                # Stuck in an uninterruptible kernel wait (e.g. a wedged
+                # USB-serial driver) -- even SIGKILL can't reap it yet. Give
+                # up rather than blocking the caller (often the GUI thread)
+                # forever; is_running keeps reporting True until the OS
+                # finishes reaping it, which is still correct.
+                return
         if self._reader_thread is not None:
             self._reader_thread.join(timeout=timeout)
 

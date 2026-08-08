@@ -5,6 +5,7 @@ import platform
 import shlex
 import subprocess
 import sys
+import threading
 from collections.abc import Callable
 
 from PySide6.QtCore import Property, QPropertyAnimation, QRectF, Qt, QTimer, Signal
@@ -65,6 +66,20 @@ from ctld_launcher.i18n import _, get_language, set_language
 from ctld_launcher.version import get_version
 
 USB_POLL_INTERVAL_MS = 2000
+
+# How often a running daemon is health-checked, and how many consecutive
+# failures/timeouts in a row before it's considered wedged and automatically
+# killed + respawned. Chosen for fast detection over tolerance of a single
+# transient hiccup (e.g. a client mid-query at the exact poll moment) --
+# restarting the daemon is cheap, so erring toward restarting sooner.
+HEALTH_CHECK_INTERVAL_MS = 5000
+HEALTH_CHECK_FAILURE_THRESHOLD = 1
+
+# How many times in a row an unexpected exit (crash, not a hang) is
+# auto-restarted before giving up -- same purpose as systemd's
+# StartLimitBurst: a daemon that dies on every launch (e.g. persistently
+# bad arguments) shouldn't spin forever.
+CRASH_RESTART_LIMIT = 3
 
 BAUD_RATES = ["1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"]
 
@@ -252,6 +267,9 @@ class MainWindow(QMainWindow):
     state_changed = Signal()
     _log_line = Signal(str, str)
     _process_exited = Signal(str, int)
+    _usb_ports_ready = Signal(object)  # list[ListPortInfo]
+    _health_check_result = Signal(str, bool)  # profile_id, responded_ok
+    _auto_restart_stopped = Signal(str)  # profile_id, after the old process was killed
 
     def __init__(
         self,
@@ -283,9 +301,19 @@ class MainWindow(QMainWindow):
         self._update_check_is_manual = False
         self._update_check_worker: UpdateCheckWorker | None = None
         self._update_install_worker: UpdateInstallWorker | None = None
+        self._usb_poll_in_flight = False
+        self._health_check_in_flight: set[str] = set()
+        self._health_check_failures: dict[str, int] = {}
+        self._auto_restarting: set[str] = set()
+        self._auto_restart_stuck_warned: set[str] = set()
+        self._intentional_stop: set[str] = set()
+        self._crash_restart_attempts: dict[str, int] = {}
 
         self._log_line.connect(self._on_log_line)
         self._process_exited.connect(self._on_process_exited)
+        self._usb_ports_ready.connect(self._on_usb_ports_ready)
+        self._health_check_result.connect(self._on_health_check_result)
+        self._auto_restart_stopped.connect(self._on_auto_restart_stopped)
 
         self._build_ui()
         for profile in self._profiles:
@@ -296,6 +324,10 @@ class MainWindow(QMainWindow):
         self._usb_timer = QTimer(self)
         self._usb_timer.timeout.connect(self._poll_usb_hotplug)
         self._refresh_usb_tracking()
+
+        self._health_check_timer = QTimer(self)
+        self._health_check_timer.timeout.connect(self._run_health_checks)
+        self._health_check_timer.start(HEALTH_CHECK_INTERVAL_MS)
 
     # ------------------------------------------------------------------ #
     # UI construction
@@ -1272,6 +1304,7 @@ class MainWindow(QMainWindow):
     def _on_start(self) -> None:
         profile = self._selected_profile()
         if profile is not None:
+            self._crash_restart_attempts.pop(profile.id, None)
             self._start_profile(profile)
 
     def _on_stop(self) -> None:
@@ -1281,6 +1314,7 @@ class MainWindow(QMainWindow):
     def _on_restart(self) -> None:
         profile = self._selected_profile()
         if profile is not None:
+            self._crash_restart_attempts.pop(profile.id, None)
             self._stop_profile(profile.id)
             self._start_profile(profile)
 
@@ -1290,6 +1324,7 @@ class MainWindow(QMainWindow):
         else:
             profile = self._find_profile(profile_id)
             if profile is not None:
+                self._crash_restart_attempts.pop(profile_id, None)
                 self._start_profile(profile)
 
     def _start_profile(self, profile: Profile) -> None:
@@ -1318,6 +1353,9 @@ class MainWindow(QMainWindow):
         process = self._processes.get(profile_id)
         if process is None:
             return
+        # Tell _on_process_exited this exit was requested, not a crash, so
+        # it doesn't try to "helpfully" restart what was just stopped.
+        self._intentional_stop.add(profile_id)
         process.stop()
         profile = self._find_profile(profile_id)
         if profile is not None:
@@ -1504,7 +1542,31 @@ class MainWindow(QMainWindow):
             self._usb_timer.stop()
 
     def _poll_usb_hotplug(self) -> None:
-        ports = self._usb_ports_resolver()
+        # list_ports.comports() talks to the OS's device enumeration (IOKit
+        # on macOS, WMI on Windows, udev on Linux); a wedged USB-serial
+        # driver can make it block indefinitely. Running it here on the GUI
+        # thread would freeze the whole window -- including the Stop/Restart
+        # buttons someone would reach for to recover -- so it runs on a
+        # throwaway thread instead and reports back via a queued signal.
+        # in_flight guards against piling up threads if one poll is still
+        # stuck when the next timer tick fires.
+        if self._usb_poll_in_flight:
+            return
+        self._usb_poll_in_flight = True
+        resolver = self._usb_ports_resolver
+        signal = self._usb_ports_ready
+
+        def _poll() -> None:
+            try:
+                ports = resolver()
+            except OSError:
+                ports = []
+            signal.emit(ports)
+
+        threading.Thread(target=_poll, daemon=True).start()
+
+    def _on_usb_ports_ready(self, ports: list[ListPortInfo]) -> None:
+        self._usb_poll_in_flight = False
         connected, disconnected = self._usb_tracker.poll(ports)
         for profile_id, port in connected.items():
             profile = self._find_profile(profile_id)
@@ -1519,6 +1581,124 @@ class MainWindow(QMainWindow):
         for profile_id in disconnected:
             self._stop_profile(profile_id)
 
+    # ------------------------------------------------------------------ #
+    # Health check / auto-restart -- a running rigctld/rotctld can go on
+    # accepting the TCP connection while being wedged internally (typically
+    # blocked in a kernel-level read on a stuck USB-serial driver), so
+    # "process is still alive" alone doesn't mean "still working". This
+    # periodically probes each running daemon the same way the "Test
+    # connection" button does (NET rigctl/rotctl through the daemon) and, if
+    # it stops responding, kills and respawns it automatically -- the same
+    # remedy a user would otherwise have to notice and apply by hand.
+    # ------------------------------------------------------------------ #
+    def _run_health_checks(self) -> None:
+        signal = self._health_check_result
+        for profile_id, process in list(self._processes.items()):
+            if (
+                not process.is_running
+                or profile_id in self._health_check_in_flight
+                or profile_id in self._auto_restarting
+                or profile_id in self._intentional_stop
+            ):
+                # The last case is a profile someone (a person, or a prior
+                # auto-restart attempt) tried to stop but couldn't reap yet
+                # -- don't "helpfully" revive something that was asked to
+                # stop just because it's still technically running.
+                continue
+            profile = self._find_profile(profile_id)
+            if profile is None:
+                continue
+            try:
+                executable = self._test_executable_resolver(profile.kind)
+            except ExecutableNotFoundError:
+                continue
+            command = build_test_command_via_daemon(executable, profile)
+            self._health_check_in_flight.add(profile_id)
+
+            def _check(profile_id: str = profile_id, command: list[str] = command) -> None:
+                try:
+                    result = subprocess.run(  # noqa: S603
+                        command,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        creationflags=NO_WINDOW_FLAGS,
+                    )
+                    responded = result.returncode == 0 and bool((result.stdout or "").strip())
+                except (subprocess.TimeoutExpired, OSError):
+                    responded = False
+                signal.emit(profile_id, responded)
+
+            threading.Thread(target=_check, daemon=True).start()
+
+    def _on_health_check_result(self, profile_id: str, responded_ok: bool) -> None:
+        self._health_check_in_flight.discard(profile_id)
+        if responded_ok:
+            self._health_check_failures.pop(profile_id, None)
+            # Proof of life -- forgive any earlier unexpected-exit history
+            # so a crash long ago doesn't count against a now-healthy run.
+            self._crash_restart_attempts.pop(profile_id, None)
+            return
+        if not self.is_running(profile_id):
+            self._health_check_failures.pop(profile_id, None)
+            return
+        failures = self._health_check_failures.get(profile_id, 0) + 1
+        if failures < HEALTH_CHECK_FAILURE_THRESHOLD:
+            self._health_check_failures[profile_id] = failures
+            return
+        self._health_check_failures.pop(profile_id, None)
+        self._auto_restart_profile(profile_id)
+
+    def _auto_restart_profile(self, profile_id: str) -> None:
+        process = self._processes.get(profile_id)
+        if process is None:
+            return
+        self._auto_restarting.add(profile_id)
+        self._intentional_stop.add(profile_id)
+        self._log_line.emit(
+            profile_id,
+            _("[ctld-launcher] Not responding to health checks -- restarting automatically…"),
+        )
+        signal = self._auto_restart_stopped
+
+        def _stop_in_background() -> None:
+            # process.stop() is safe to call off the GUI thread: it only
+            # touches the subprocess.Popen object and joins the reader
+            # thread, no Qt widgets. Doing it here instead of on the GUI
+            # thread is the whole point -- a wedged process can still take
+            # up to a few seconds (or, rarely, never) to actually die, and
+            # that must not freeze the window the way a manual Restart
+            # click could before.
+            process.stop()
+            signal.emit(profile_id)
+
+        threading.Thread(target=_stop_in_background, daemon=True).start()
+
+    def _on_auto_restart_stopped(self, profile_id: str) -> None:
+        self._auto_restarting.discard(profile_id)
+        profile = self._find_profile(profile_id)
+        if profile is None:
+            return
+        if self.is_running(profile_id):
+            # Killing it didn't work either -- almost certainly stuck in an
+            # uninterruptible kernel wait that only the OS/driver can clear.
+            # Nothing more to do from here; the next health check will try
+            # again, and will keep retrying every cycle in case the OS lets
+            # go later. Warn only once per stuck episode so the log doesn't
+            # fill up with the same line every few seconds.
+            if profile_id not in self._auto_restart_stuck_warned:
+                self._auto_restart_stuck_warned.add(profile_id)
+                self._log_line.emit(
+                    profile_id,
+                    _(
+                        "[ctld-launcher] Still unresponsive after attempting to stop it. "
+                        "This may require quitting the app entirely."
+                    ),
+                )
+            return
+        self._auto_restart_stuck_warned.discard(profile_id)
+        self._start_profile(profile)
+
     def _emit_log_line(self, profile_id: str, line: str) -> None:
         # Called from CtldProcess's reader thread; Signal.emit() is safe to
         # call cross-thread, Qt queues delivery to _on_log_line on the GUI
@@ -1532,13 +1712,45 @@ class MainWindow(QMainWindow):
         if profile_id == self._current_id:
             self._log_view.appendPlainText(line)
 
-    def _on_process_exited(self, profile_id: str, _exit_code: int) -> None:
+    def _on_process_exited(self, profile_id: str, exit_code: int) -> None:
         profile = self._find_profile(profile_id)
         if profile is not None:
             self._refresh_sidebar_item(profile)
             if profile_id == self._current_id:
                 self._update_status_and_buttons()
         self.state_changed.emit()
+
+        if profile_id in self._intentional_stop:
+            # We (a person, or an auto-restart's own stop attempt) asked
+            # for this -- not a crash, nothing to auto-restart here.
+            self._intentional_stop.discard(profile_id)
+            return
+        if profile is None:
+            return
+        # Exited entirely on its own -- a genuine crash. Unlike a hang,
+        # this is detected instantly (it's the process's own exit event,
+        # not a poll), so restart it right away, same as systemd's
+        # Restart=on-failure. CRASH_RESTART_LIMIT stops a persistently
+        # broken launch (e.g. bad arguments) from restart-looping forever.
+        attempts = self._crash_restart_attempts.get(profile_id, 0) + 1
+        if attempts > CRASH_RESTART_LIMIT:
+            self._log_line.emit(
+                profile_id,
+                _(
+                    "[ctld-launcher] Exited unexpectedly {count} times in a row; "
+                    "giving up on automatic restart. Check the log above and this "
+                    "profile's settings."
+                ).format(count=attempts - 1),
+            )
+            return
+        self._crash_restart_attempts[profile_id] = attempts
+        self._log_line.emit(
+            profile_id,
+            _(
+                "[ctld-launcher] Exited unexpectedly (exit code {code}); restarting automatically…"
+            ).format(code=exit_code),
+        )
+        self._start_profile(profile)
 
     def _update_status_and_buttons(self) -> None:
         profile = self._selected_profile()
