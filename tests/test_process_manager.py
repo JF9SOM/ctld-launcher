@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import socket
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -11,7 +13,8 @@ from ctld_launcher.core.process_manager import (
     CtldProcessError,
     build_command,
     build_test_command,
-    build_test_command_via_daemon,
+    daemon_host_port,
+    probe_daemon,
     serial_port_from_command,
 )
 from ctld_launcher.core.profile import Profile, ProfileKind
@@ -160,36 +163,112 @@ def test_build_test_command_omits_network_flags() -> None:
     assert "-T" not in command
 
 
-def test_build_test_command_via_daemon_rig_uses_net_model_and_listen_port() -> None:
+def test_daemon_host_port_normalizes_all_interfaces_to_localhost() -> None:
     profile = Profile(
-        name="IC-9700",
+        name="Dummy",
         kind=ProfileKind.RIG,
-        model_id=3081,
-        port="/dev/ttyUSB0",
-        listen_address="127.0.0.1",
+        model_id=1,
+        listen_address="0.0.0.0",
         listen_port=4532,
     )
-    assert build_test_command_via_daemon("rigctl", profile) == [
-        "rigctl",
-        "-m",
-        "2",
-        "-r",
-        "127.0.0.1:4532",
-        "f",
-    ]
+    assert daemon_host_port(profile) == ("127.0.0.1", 4532)
 
 
-def test_build_test_command_via_daemon_rotator_queries_get_pos() -> None:
+def test_daemon_host_port_uses_configured_address() -> None:
     profile = Profile(
-        name="SPID",
-        kind=ProfileKind.ROTATOR,
-        model_id=401,
-        port="/dev/ttyUSB1",
-        listen_port=4533,
+        name="Dummy",
+        kind=ProfileKind.RIG,
+        model_id=1,
+        listen_address="192.168.1.5",
+        listen_port=4532,
     )
-    command = build_test_command_via_daemon("rotctl", profile)
-    assert command[:4] == ["rotctl", "-m", "2", "-r"]
-    assert command[-1] == "p"
+    assert daemon_host_port(profile) == ("192.168.1.5", 4532)
+
+
+def _serve_one_query(sock: socket.socket, expected: bytes, reply: bytes) -> None:
+    conn, _addr = sock.accept()
+    with conn:
+        if conn.recv(64) == expected:
+            conn.sendall(reply)
+
+
+def test_probe_daemon_sends_bare_f_for_rig_and_returns_response() -> None:
+    # Regression test: probe_daemon() must talk to the daemon over a plain
+    # socket with a bare "f" (get_freq) -- not through Hamlib's own NET
+    # rigctl client (rigctl -m 2), whose connection setup sends a "v"
+    # (get_vfo) query as a side effect and, on rigctld's end, overwrites
+    # the daemon's shared current_vfo with whatever the physical rig
+    # reports as displayed -- silently corrupting every other connected
+    # client's plain frequency writes for rigs like the FTX-1 that can
+    # show Sub mid-session. See probe_daemon()'s docstring for the full
+    # trace (found via a live FO-29/FTX-1 investigation with FBSAT59).
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    port = server.getsockname()[1]
+    thread = threading.Thread(
+        target=_serve_one_query, args=(server, b"f\n", b"145000000\n"), daemon=True
+    )
+    thread.start()
+    try:
+        profile = Profile(
+            name="Dummy",
+            kind=ProfileKind.RIG,
+            model_id=1,
+            listen_address="127.0.0.1",
+            listen_port=port,
+        )
+        responded, output = probe_daemon(profile, timeout=2.0)
+        assert responded is True
+        assert output == "145000000"
+    finally:
+        thread.join(timeout=2.0)
+        server.close()
+
+
+def test_probe_daemon_sends_bare_p_for_rotator() -> None:
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    port = server.getsockname()[1]
+    thread = threading.Thread(
+        target=_serve_one_query, args=(server, b"p\n", b"180.0 45.0\n"), daemon=True
+    )
+    thread.start()
+    try:
+        profile = Profile(
+            name="Dummy",
+            kind=ProfileKind.ROTATOR,
+            model_id=401,
+            listen_address="127.0.0.1",
+            listen_port=port,
+        )
+        responded, output = probe_daemon(profile, timeout=2.0)
+        assert responded is True
+        assert output == "180.0 45.0"
+    finally:
+        thread.join(timeout=2.0)
+        server.close()
+
+
+def test_probe_daemon_returns_false_when_nothing_listening() -> None:
+    # Grab an unused port and close it immediately -- nothing is listening
+    # there, a fast and portable way to get a connection failure.
+    reserved = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    reserved.bind(("127.0.0.1", 0))
+    port = reserved.getsockname()[1]
+    reserved.close()
+
+    profile = Profile(
+        name="Dummy",
+        kind=ProfileKind.RIG,
+        model_id=1,
+        listen_address="127.0.0.1",
+        listen_port=port,
+    )
+    responded, output = probe_daemon(profile, timeout=1.0)
+    assert responded is False
+    assert output == ""
 
 
 def test_serial_port_from_command_extracts_r_flag_value() -> None:
@@ -202,18 +281,6 @@ def test_serial_port_from_command_none_when_no_port() -> None:
     profile = Profile(name="Dummy", kind=ProfileKind.RIG, model_id=1)
     command = build_command("rigctld", profile)
     assert serial_port_from_command(command) is None
-
-
-def test_build_test_command_via_daemon_all_interfaces_connects_via_localhost() -> None:
-    profile = Profile(
-        name="Dummy",
-        kind=ProfileKind.RIG,
-        model_id=1,
-        listen_address="0.0.0.0",
-        listen_port=4532,
-    )
-    command = build_test_command_via_daemon("rigctl", profile)
-    assert command[command.index("-r") + 1] == "127.0.0.1:4532"
 
 
 def test_process_start_stop_captures_output() -> None:

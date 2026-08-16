@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 import subprocess
 import threading
 from collections.abc import Callable, Iterator
@@ -101,23 +102,63 @@ def serial_port_from_command(command: list[str]) -> str | None:
         return None
 
 
-def build_test_command_via_daemon(executable: str, profile: Profile) -> list[str]:
-    """Test connectivity through an already-running rigctld/rotctld instead of
-    opening the serial port directly.
-
-    Once the daemon is running it already holds the port open, so a second,
-    direct rigctl/rotctl open of the same serial port fails — on Windows a
-    COM port is exclusive, so this isn't just a race, it always fails. Model
-    2 is Hamlib's built-in "NET rigctl/rotctl" backend, which talks to a
-    running daemon over TCP instead of a serial line, so it tests through the
-    daemon rather than fighting it for the port.
+def daemon_host_port(profile: Profile) -> tuple[str, int]:
+    """Resolve the (host, port) an already-running rigctld/rotctld for this
+    profile is reachable on, normalizing an all-interfaces bind address
+    (0.0.0.0) to loopback for client use.
     """
     host = profile.listen_address
     if not host or host == "0.0.0.0":  # noqa: S104 (comparison, not a bind)
         host = "127.0.0.1"
-    command = [executable, "-m", "2", "-r", f"{host}:{profile.listen_port}"]
-    command.append("f" if profile.kind == ProfileKind.RIG else "p")
-    return command
+    return host, profile.listen_port
+
+
+def probe_daemon(profile: Profile, timeout: float = 5.0) -> tuple[bool, str]:
+    """Read-only liveness probe for an already-running rigctld/rotctld.
+
+    Talks to the daemon directly over its raw TCP text protocol -- sending
+    a bare "f\\n" (get_freq) for rig profiles or "p\\n" (get_pos) for rotator
+    profiles, exactly what FBSAT59 itself already sends routinely as a
+    read -- instead of shelling out to Hamlib's own NET rigctl/rotctl client
+    (rigctl/rotctl -m 2), which this function replaces.
+
+    That client matters here because it's not just a thinner way to reach
+    the same daemon: opening it (Hamlib's generic rig_open()) issues a "v"
+    (get_vfo) query as an unavoidable side effect, and rigctld's server-side
+    rig_get_vfo() handler doesn't just answer it -- it also overwrites the
+    daemon's single, connection-shared current_vfo with whatever VFO the
+    physical rig currently reports as displayed/active (Hamlib's rig.c
+    vfo-cache logic; rig_get_freq(), used here instead, only ever *reads*
+    current_vfo, confirmed from Hamlib 4.7.1/4.7.2 source -- so this
+    couldn't happen for rigs that never reply to plain reads with a VFO
+    switch either). For rigs like the FTX-1 that can end up displaying Sub
+    mid-session during continuous split/cross-band Doppler tracking, a
+    health-check poll landing at the wrong moment used to silently redirect
+    every subsequent VFO-less "F" frequency write from every OTHER
+    connected client (FBSAT59, GPredict, WSJT-X, ...) to Sub instead of
+    Main -- found via a live FO-29/FTX-1 investigation with FBSAT59 (see
+    its CLAUDE.md changelog for the full trace). Rotators have no VFO
+    concept at all, so they were never at risk, but they get the same
+    lighter-weight probe for consistency.
+
+    Bypassing rigctl/rotctl entirely also means this no longer depends on
+    locating that executable, and needs no subprocess at all.
+
+    Returns (responded, output): output is the daemon's raw first-line
+    reply (a frequency in Hz for rigs, azimuth/elevation for rotators),
+    or "" if nothing came back before the timeout.
+    """
+    host, port = daemon_host_port(profile)
+    command = b"f\n" if profile.kind == ProfileKind.RIG else b"p\n"
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as sock:
+            sock.sendall(command)
+            sock.settimeout(timeout)
+            data = sock.recv(256)
+    except OSError:
+        return False, ""
+    text = data.decode("utf-8", errors="replace").strip()
+    return bool(text), text
 
 
 class CtldProcess:

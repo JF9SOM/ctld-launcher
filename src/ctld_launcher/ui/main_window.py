@@ -55,7 +55,7 @@ from ctld_launcher.core.process_manager import (
     CtldProcess,
     build_command,
     build_test_command,
-    build_test_command_via_daemon,
+    probe_daemon,
     serial_port_from_command,
 )
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
@@ -1173,11 +1173,6 @@ class MainWindow(QMainWindow):
         profile = self._selected_profile()
         if profile is None:
             return
-        try:
-            executable = self._test_executable_resolver(profile.kind)
-        except ExecutableNotFoundError as exc:
-            self._set_test_connection_result(_("✗ {error}").format(error=exc), success=False)
-            return
 
         if self.is_running(profile.id):
             running_command = self._processes[profile.id].command
@@ -1194,9 +1189,34 @@ class MainWindow(QMainWindow):
                 ).format(actual_port=actual_port, selected_port=profile.port)
                 self._set_test_connection_result(message, success=False)
                 return
-            command = build_test_command_via_daemon(executable, profile)
-        else:
-            command = build_test_command(executable, profile)
+            # Once the daemon is running it already holds the serial port
+            # open, so probe it directly over the network (probe_daemon())
+            # instead of opening the port a second time -- see that
+            # function's docstring for why this is a plain read, not
+            # Hamlib's own NET rigctl/rotctl client.
+            self._test_connection_button.setEnabled(False)
+            self._test_connection_button.setText(_("Testing…"))
+            self._test_connection_button.setStyleSheet("")
+            self._test_connection_result.setText("")
+            responded, output = probe_daemon(profile)
+            if responded:
+                self._set_test_connection_result(
+                    _("✓ Response: {output}").format(output=output), success=True
+                )
+            else:
+                self._set_test_connection_result(
+                    _("✗ Timed out (no response from daemon)"), success=False
+                )
+            self._test_connection_button.setEnabled(True)
+            self._test_connection_button.setText(_("Test connection"))
+            return
+
+        try:
+            executable = self._test_executable_resolver(profile.kind)
+        except ExecutableNotFoundError as exc:
+            self._set_test_connection_result(_("✗ {error}").format(error=exc), success=False)
+            return
+        command = build_test_command(executable, profile)
         self._test_connection_button.setEnabled(False)
         self._test_connection_button.setText(_("Testing…"))
         self._test_connection_button.setStyleSheet("")
@@ -1589,9 +1609,24 @@ class MainWindow(QMainWindow):
     # blocked in a kernel-level read on a stuck USB-serial driver), so
     # "process is still alive" alone doesn't mean "still working". This
     # periodically probes each running daemon the same way the "Test
-    # connection" button does (NET rigctl/rotctl through the daemon) and, if
-    # it stops responding, kills and respawns it automatically -- the same
-    # remedy a user would otherwise have to notice and apply by hand.
+    # connection" button does (a direct read against the daemon, see
+    # probe_daemon()) and, if it stops responding, kills and respawns it
+    # automatically -- the same remedy a user would otherwise have to
+    # notice and apply by hand.
+    #
+    # probe_daemon() talks to the daemon directly instead of through
+    # Hamlib's own NET rigctl/rotctl client (rigctl/rotctl -m 2, the
+    # previous approach here) -- that client's connection setup sends a "v"
+    # (get_vfo) query as a side effect, and rigctld answers it by querying
+    # the physical rig's displayed VFO and overwriting the daemon's single,
+    # connection-shared current_vfo with whatever it gets back. For rigs
+    # like the FTX-1 that can end up displaying Sub mid-session during
+    # continuous split/cross-band Doppler tracking, a health-check poll
+    # landing at the wrong moment silently redirected every subsequent
+    # VFO-less frequency write from every OTHER connected client (FBSAT59,
+    # GPredict, ...) to Sub instead of Main. See probe_daemon()'s docstring
+    # for the full trace (found via a live FO-29/FTX-1 investigation with
+    # FBSAT59).
     # ------------------------------------------------------------------ #
     def _run_health_checks(self) -> None:
         signal = self._health_check_result
@@ -1610,25 +1645,10 @@ class MainWindow(QMainWindow):
             profile = self._find_profile(profile_id)
             if profile is None:
                 continue
-            try:
-                executable = self._test_executable_resolver(profile.kind)
-            except ExecutableNotFoundError:
-                continue
-            command = build_test_command_via_daemon(executable, profile)
             self._health_check_in_flight.add(profile_id)
 
-            def _check(profile_id: str = profile_id, command: list[str] = command) -> None:
-                try:
-                    result = subprocess.run(  # noqa: S603
-                        command,
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                        creationflags=NO_WINDOW_FLAGS,
-                    )
-                    responded = result.returncode == 0 and bool((result.stdout or "").strip())
-                except (subprocess.TimeoutExpired, OSError):
-                    responded = False
+            def _check(profile_id: str = profile_id, profile: Profile = profile) -> None:
+                responded, _output = probe_daemon(profile)
                 signal.emit(profile_id, responded)
 
             threading.Thread(target=_check, daemon=True).start()

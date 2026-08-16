@@ -4,7 +4,7 @@ import stat
 import subprocess
 from pathlib import Path
 
-from ctld_launcher.core.profile import ProfileKind, ProfileStore
+from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
 from ctld_launcher.ui.main_window import MainWindow
 
 FAKE_CTLD = Path(__file__).parent / "_fake_ctld.py"
@@ -304,8 +304,8 @@ def test_test_connection_routes_through_daemon_when_running(  # type: ignore[no-
     # Regression test: once rigctld/rotctld is running it already holds the
     # serial port open, so a second, direct rigctl/rotctl open of the same
     # port fails (a Windows COM port is exclusive, so this isn't a race, it
-    # always fails there). The test button must instead go through the
-    # running daemon over the network (NET rigctl, model 2).
+    # always fails there). The test button must instead probe the running
+    # daemon directly (probe_daemon()) rather than reopening the port.
     FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
     window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
     window._add_profile(ProfileKind.RIG)
@@ -315,17 +315,18 @@ def test_test_connection_routes_through_daemon_when_running(  # type: ignore[no-
         window._start_profile(profile)
         qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
 
-        captured: list[list[str]] = []
+        probed: list[Profile] = []
 
-        def fake_run(command, **kwargs):  # type: ignore[no-untyped-def]
-            captured.append(command)
-            return subprocess.CompletedProcess(command, returncode=0, stdout="ok", stderr="")
+        def fake_probe(probed_profile, **kwargs):  # type: ignore[no-untyped-def]
+            probed.append(probed_profile)
+            return True, "145000000"
 
-        monkeypatch.setattr("ctld_launcher.ui.main_window.subprocess.run", fake_run)
+        monkeypatch.setattr("ctld_launcher.ui.main_window.probe_daemon", fake_probe)
 
         window._on_test_connection()
 
-        assert captured[0][1:4] == ["-m", "2", "-r"]
+        assert probed and probed[0].id == profile.id
+        assert "✓" in window._test_connection_result.text()
     finally:
         window.stop_all()
 
@@ -333,11 +334,11 @@ def test_test_connection_routes_through_daemon_when_running(  # type: ignore[no-
 def test_test_connection_flags_port_mismatch_without_querying_daemon(  # type: ignore[no-untyped-def]
     tmp_path, qtbot, monkeypatch
 ) -> None:
-    # Regression test: once routed through the running daemon (NET rigctl),
-    # the test always succeeds regardless of which port is selected in the
-    # form, since the daemon answers for whatever port *it* opened at start
-    # -- not necessarily the one currently shown (e.g. edited after start,
-    # or simply the wrong one). Catch the mismatch before even asking the
+    # Regression test: once routed through the running daemon, the test
+    # always succeeds regardless of which port is selected in the form,
+    # since the daemon answers for whatever port *it* opened at start --
+    # not necessarily the one currently shown (e.g. edited after start, or
+    # simply the wrong one). Catch the mismatch before even asking the
     # daemon, rather than reporting a misleading green result.
     FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
     window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
@@ -353,12 +354,12 @@ def test_test_connection_flags_port_mismatch_without_querying_daemon(  # type: i
 
         called = False
 
-        def fake_run(command, **kwargs):  # type: ignore[no-untyped-def]
+        def fake_probe(probed_profile, **kwargs):  # type: ignore[no-untyped-def]
             nonlocal called
             called = True
-            return subprocess.CompletedProcess(command, returncode=0, stdout="ok", stderr="")
+            return True, "ok"
 
-        monkeypatch.setattr("ctld_launcher.ui.main_window.subprocess.run", fake_run)
+        monkeypatch.setattr("ctld_launcher.ui.main_window.probe_daemon", fake_probe)
 
         window._on_test_connection()
 
@@ -388,10 +389,10 @@ def test_auto_restart_on_repeated_health_check_failure(  # type: ignore[no-untyp
         qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
         first_pid = window._processes[profile.id].pid
 
-        def fake_run(command, **kwargs):  # type: ignore[no-untyped-def]
-            return subprocess.CompletedProcess(command, returncode=1, stdout="", stderr="timeout")
+        def fake_probe(probed_profile, **kwargs):  # type: ignore[no-untyped-def]
+            return False, ""
 
-        monkeypatch.setattr("ctld_launcher.ui.main_window.subprocess.run", fake_run)
+        monkeypatch.setattr("ctld_launcher.ui.main_window.probe_daemon", fake_probe)
 
         for _ in range(2):
             window._run_health_checks()
