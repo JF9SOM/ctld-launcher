@@ -8,6 +8,34 @@ Hamlibの`rigctld`(リグ制御デーモン)/`rotctld`(ローテーター制御�
 
 対象OS: Linux, Windows, macOS(3プラットフォーム対応)
 
+## 開発ワークフロー(確定事項)
+
+姉妹プロジェクト[FBSAT59](../FBSAT59)のCLAUDE.mdにある運用ルールをそのまま踏襲する。
+
+- **実装そのものへの承認は必須**: コード変更を伴う作業は、ユーザーが依頼した内容を実装方針として
+  提示し、「OK」等の承認を得てから着手する。
+- **承認済みの実装は、コミット前チェックリスト(下記)を通過し次第、都度コミットする**:
+  「コミットしますか?」と改めて確認する必要はない。1セッション内で複数の独立した変更を行った
+  場合は、コードの変更(1コミット)とCLAUDE.mdへのドキュメント追記(別コミット、`git log`に
+  多数の実例あり — 例: `Pin the USB-hotplug port...` → `Document the USB hotplug port-pinning
+  fix in CLAUDE.md`)のように、論理的にまとまった単位ごとに分けてコミットする。
+- **コミットメッセージ**: FBSAT59のような`type(scope): 概要`形式は使わない。既存の`git log`が
+  示す通り、平叙文・現在形の命令形1行(例: `Auto-restart rigctld/rotctld on hang or crash`)。
+  ドキュメントのみの追記コミットは`Document ... in CLAUDE.md`という言い回しで統一されている。
+- **コミット直後に必ずpushする**: CIの早期確認・作業内容のバックアップのため。
+- `.env`等の機密情報ファイルはコミット対象から除外する。
+
+### コミット前チェックリスト
+
+```bash
+.venv/bin/ruff format src/ tests/
+.venv/bin/ruff check src/ tests/
+.venv/bin/mypy src/
+.venv/bin/pytest -q
+```
+
+いずれかが失敗したらコミットしない。
+
 ## アーキテクチャ方針(確定事項)
 
 - **実装スタック**: Python + PySide6
