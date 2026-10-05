@@ -69,11 +69,16 @@ USB_POLL_INTERVAL_MS = 2000
 
 # How often a running daemon is health-checked, and how many consecutive
 # failures/timeouts in a row before it's considered wedged and automatically
-# killed + respawned. Chosen for fast detection over tolerance of a single
-# transient hiccup (e.g. a client mid-query at the exact poll moment) --
-# restarting the daemon is cheap, so erring toward restarting sooner.
+# killed + respawned. A single missed probe is NOT enough: rigctld serves
+# every client (and this probe) through one mutex, so a transient stall of
+# the radio's CAT link (a command waiting out Hamlib's own 2 s x retry read
+# timeout) makes the probe time out even though rigctld would have recovered
+# by itself -- and killing it then drops the connections of every client
+# (FBSAT59, WSJT-X, ...). Observed on a live RS-44 pass (2026-10-05): ~16
+# such restarts in 20 minutes. Requiring 3 consecutive misses still catches
+# a genuinely wedged daemon within well under a minute.
 HEALTH_CHECK_INTERVAL_MS = 5000
-HEALTH_CHECK_FAILURE_THRESHOLD = 1
+HEALTH_CHECK_FAILURE_THRESHOLD = 3
 
 # How many times in a row an unexpected exit (crash, not a hang) is
 # auto-restarted before giving up -- same purpose as systemd's

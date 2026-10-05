@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
-from ctld_launcher.ui.main_window import MainWindow
+from ctld_launcher.ui.main_window import HEALTH_CHECK_FAILURE_THRESHOLD, MainWindow
 
 FAKE_CTLD = Path(__file__).parent / "_fake_ctld.py"
 FAKE_CTLD_CRASH = Path(__file__).parent / "_fake_ctld_crash.py"
@@ -394,7 +394,7 @@ def test_auto_restart_on_repeated_health_check_failure(  # type: ignore[no-untyp
 
         monkeypatch.setattr("ctld_launcher.ui.main_window.probe_daemon", fake_probe)
 
-        for _ in range(2):
+        for _ in range(HEALTH_CHECK_FAILURE_THRESHOLD):
             window._run_health_checks()
             qtbot.waitUntil(lambda: profile.id not in window._health_check_in_flight, timeout=1000)
 
@@ -404,6 +404,44 @@ def test_auto_restart_on_repeated_health_check_failure(  # type: ignore[no-untyp
             ),
             timeout=2000,
         )
+    finally:
+        window.stop_all()
+
+
+def test_no_restart_below_health_check_failure_threshold(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    # A transient radio CAT stall makes a probe or two time out even though
+    # rigctld recovers by itself; killing it then drops every client's
+    # connection (2026-10-05 RS-44 pass). Fewer than the threshold of
+    # consecutive misses must leave the daemon alone, and a success resets
+    # the count.
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+        first_pid = window._processes[profile.id].pid
+
+        monkeypatch.setattr(
+            "ctld_launcher.ui.main_window.probe_daemon", lambda *a, **k: (False, "")
+        )
+        for _ in range(HEALTH_CHECK_FAILURE_THRESHOLD - 1):
+            window._run_health_checks()
+            qtbot.waitUntil(lambda: profile.id not in window._health_check_in_flight, timeout=1000)
+
+        monkeypatch.setattr(
+            "ctld_launcher.ui.main_window.probe_daemon", lambda *a, **k: (True, "145000000")
+        )
+        window._run_health_checks()
+        qtbot.waitUntil(lambda: profile.id not in window._health_check_in_flight, timeout=1000)
+
+        assert window.is_running(profile.id)
+        assert window._processes[profile.id].pid == first_pid
+        assert profile.id not in window._health_check_failures
     finally:
         window.stop_all()
 
