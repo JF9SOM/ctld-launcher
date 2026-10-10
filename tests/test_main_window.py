@@ -147,62 +147,6 @@ def test_toggling_autostart_checkbox_calls_backend(tmp_path, qtbot) -> None:  # 
     assert backend.disable_calls == 1
 
 
-def test_profile_autostart_checkbox_persists(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
-    window = _make_window(tmp_path, qtbot)
-    window._add_profile(ProfileKind.RIG)
-    profile = window.profiles[0]
-    assert profile.auto_start is False
-
-    checkbox = window._sidebar_autostart_toggles[profile.id]
-    checkbox.setChecked(True)
-    assert profile.auto_start is True
-
-    store = ProfileStore(path=tmp_path / "profiles.json")
-    assert store.load()[0].auto_start is True
-
-
-def test_sidebar_autostart_checkbox_reflects_existing_profile_state(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
-    window = _make_window(tmp_path, qtbot)
-    window._add_profile(ProfileKind.RIG)
-    profile = window.profiles[0]
-    profile.auto_start = True
-    window._refresh_sidebar_item(profile)
-
-    assert window._sidebar_autostart_toggles[profile.id].isChecked() is True
-
-
-def test_sidebar_autostart_checkbox_removed_when_profile_removed(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
-    window = _make_window(tmp_path, qtbot)
-    window._add_profile(ProfileKind.RIG)
-    profile_id = window.profiles[0].id
-    assert profile_id in window._sidebar_autostart_toggles
-
-    window._remove_selected()
-
-    assert profile_id not in window._sidebar_autostart_toggles
-
-
-def test_start_autostart_profiles_starts_only_flagged_ones(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
-    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
-
-    def resolver(kind: ProfileKind) -> str:
-        return str(FAKE_CTLD)
-
-    window = _make_window(tmp_path, qtbot, executable_resolver=resolver)
-    window._add_profile(ProfileKind.RIG)
-    window._add_profile(ProfileKind.RIG)
-    flagged, unflagged = window.profiles
-    flagged.auto_start = True
-
-    try:
-        window.start_autostart_profiles()
-        qtbot.waitUntil(lambda: window.is_running(flagged.id), timeout=1000)
-        assert window.is_running(flagged.id) is True
-        assert window.is_running(unflagged.id) is False
-    finally:
-        window.stop_all()
-
-
 def test_start_button_turns_green_and_relabels_while_running(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
     # Regression test: the Start button used to just go grey (Qt's default
     # disabled look) once running, with no positive indication that it had

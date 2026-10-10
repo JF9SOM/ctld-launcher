@@ -40,7 +40,6 @@ class Profile:
     debug_level: int = 0
     log_file: str | None = None
     extra_args: list[str] = field(default_factory=list)
-    auto_start: bool = False
     usb_hotplug: bool = False
     usb_vid: int | None = None
     usb_pid: int | None = None
@@ -60,7 +59,6 @@ class Profile:
         debug_level: int = 0,
         log_file: str | None = None,
         extra_args: list[str] | None = None,
-        auto_start: bool = False,
     ) -> Profile:
         return cls(
             name=name,
@@ -74,7 +72,6 @@ class Profile:
             debug_level=debug_level,
             log_file=log_file,
             extra_args=extra_args or [],
-            auto_start=auto_start,
         )
 
     @classmethod
@@ -89,7 +86,6 @@ class Profile:
         debug_level: int = 0,
         log_file: str | None = None,
         extra_args: list[str] | None = None,
-        auto_start: bool = False,
     ) -> Profile:
         return cls(
             name=name,
@@ -102,7 +98,6 @@ class Profile:
             debug_level=debug_level,
             log_file=log_file,
             extra_args=extra_args or [],
-            auto_start=auto_start,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -113,6 +108,8 @@ class Profile:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Profile:
         kwargs = dict(data)
+        # Removed field: profiles saved by older versions may still carry it.
+        kwargs.pop("auto_start", None)
         kwargs["kind"] = ProfileKind(kwargs["kind"])
         return cls(**kwargs)
 

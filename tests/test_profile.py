@@ -9,6 +9,13 @@ def test_profile_round_trip_dict() -> None:
     assert restored == profile
 
 
+def test_from_dict_ignores_removed_auto_start_field() -> None:
+    # Profiles saved by older versions carry "auto_start", which no longer exists.
+    data = Profile(name="IC-9700", kind=ProfileKind.RIG, model_id=3081).to_dict()
+    data["auto_start"] = True
+    assert Profile.from_dict(data).name == "IC-9700"
+
+
 def test_new_rig_and_new_rotator_defaults() -> None:
     rig = Profile.new_rig("IC-9700 Main", model_id=3081, port="/dev/ttyUSB0")
     rotator = Profile.new_rotator("SPID", model_id=901, port="/dev/ttyUSB1")

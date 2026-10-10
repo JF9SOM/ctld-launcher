@@ -73,7 +73,7 @@ msgstr ""
 
 #: src/ctld_launcher/ui/main_window.py:366
 #: src/ctld_launcher/ui/main_window.py:813
-msgid "Starts this app itself in the tray at login. To also start individual profiles automatically, enable the toggle next to each profile in the list on the left."
+msgid "Starts this app itself in the tray at login. To also start a profile automatically, enable its USB hotplug option."
 msgstr ""
 
 #: src/ctld_launcher/ui/main_window.py:378
@@ -307,11 +307,6 @@ msgstr ""
 #: src/ctld_launcher/ui/main_window.py:665
 #: src/ctld_launcher/ui/main_window.py:935
 msgid "Additional command-line options passed to rigctld/rotctld (advanced)."
-msgstr ""
-
-#: src/ctld_launcher/ui/main_window.py:697
-#: src/ctld_launcher/ui/main_window.py:820
-msgid "Start this profile automatically when the app launches"
 msgstr ""
 
 #: src/ctld_launcher/ui/main_window.py:739

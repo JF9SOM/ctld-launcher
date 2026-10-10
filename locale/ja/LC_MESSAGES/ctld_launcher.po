@@ -66,12 +66,11 @@ msgstr "スタートアップ時に起動"
 #: src/ctld_launcher/ui/main_window.py:366
 #: src/ctld_launcher/ui/main_window.py:813
 msgid ""
-"Starts this app itself in the tray at login. To also start individual "
-"profiles automatically, enable the toggle next to each profile in the list "
-"on the left."
+"Starts this app itself in the tray at login. To also start a profile "
+"automatically, enable its USB hotplug option."
 msgstr ""
 "PCログイン時にこのアプリ自体をトレイに常駐起動します。個別のプロファイルも自"
-"動起動したい場合は、左の一覧の各プロファイル横のトグルもオンにしてください。"
+"動起動したい場合は、そのプロファイルのUSB接続時自動起動をオンにしてください。"
 
 #: src/ctld_launcher/ui/main_window.py:378
 #: src/ctld_launcher/ui/main_window.py:821
@@ -359,11 +358,6 @@ msgstr "追加オプション(上級者向け)"
 #: src/ctld_launcher/ui/main_window.py:935
 msgid "Additional command-line options passed to rigctld/rotctld (advanced)."
 msgstr "rigctld/rotctldに渡す追加のコマンドラインオプション(上級者向け)。"
-
-#: src/ctld_launcher/ui/main_window.py:697
-#: src/ctld_launcher/ui/main_window.py:820
-msgid "Start this profile automatically when the app launches"
-msgstr "アプリ起動時にこのプロファイルも自動的に起動する"
 
 #: src/ctld_launcher/ui/main_window.py:739
 msgid "New Rig"
