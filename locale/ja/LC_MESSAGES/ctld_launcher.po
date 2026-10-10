@@ -557,3 +557,18 @@ msgstr "ctld-launcherはすでに起動しています。"
 
 #~ msgid "Refresh ports"
 #~ msgstr "ポートを再検出"
+
+msgid "Watchdog configuration"
+msgstr "監視設定"
+
+msgid "Turn the periodic responsiveness check of the running rigctld/rotctld on or off, and set how often it runs."
+msgstr "起動中のrigctld/rotctldへの定期的な応答確認のオン/オフと、その間隔を設定します。"
+
+msgid "Enable watchdog"
+msgstr "監視を有効にする"
+
+msgid "While running, periodically sends a read-only query to rigctld/rotctld and restarts it if it stops responding. Turn off if the periodic query interferes with other software using the same rig."
+msgstr "起動中、rigctld/rotctldへ定期的に読み取り専用の問い合わせを送り、応答しなくなったら自動で再起動します。この定期的な問い合わせが同じリグを使う他のソフトの邪魔になる場合はオフにしてください。"
+
+msgid "Interval (seconds)"
+msgstr "間隔(秒)"

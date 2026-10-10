@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Callable
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -57,7 +58,13 @@ from ctld_launcher.core.process_manager import (
     probe_daemon,
     serial_port_from_command,
 )
-from ctld_launcher.core.profile import Profile, ProfileKind, ProfileStore
+from ctld_launcher.core.profile import (
+    MAX_WATCHDOG_INTERVAL_S,
+    MIN_WATCHDOG_INTERVAL_S,
+    Profile,
+    ProfileKind,
+    ProfileStore,
+)
 from ctld_launcher.core.serial_ports import list_serial_ports
 from ctld_launcher.core.subprocess_utils import NO_WINDOW_FLAGS
 from ctld_launcher.core.usb_watch import UsbHotplugTracker, UsbIdentity, identity_for_port
@@ -76,7 +83,12 @@ USB_POLL_INTERVAL_MS = 2000
 # (FBSAT59, WSJT-X, ...). Observed on a live RS-44 pass (2026-10-05): ~16
 # such restarts in 20 minutes. Requiring 3 consecutive misses still catches
 # a genuinely wedged daemon within well under a minute.
-HEALTH_CHECK_INTERVAL_MS = 5000
+#
+# The timer itself ticks every second; each profile's own interval (and
+# on/off switch, Profile.watchdog_enabled / watchdog_interval_s -- exposed
+# via the "Watchdog configuration" button) is applied in
+# _health_check_tick().
+HEALTH_CHECK_INTERVAL_MS = 1000
 HEALTH_CHECK_FAILURE_THRESHOLD = 3
 
 # How many times in a row an unexpected exit (crash, not a hang) is
@@ -219,6 +231,7 @@ class MainWindow(QMainWindow):
         self._usb_poll_in_flight = False
         self._health_check_in_flight: set[str] = set()
         self._health_check_failures: dict[str, int] = {}
+        self._last_health_check: dict[str, float] = {}
         self._auto_restarting: set[str] = set()
         self._auto_restart_stuck_warned: set[str] = set()
         self._intentional_stop: set[str] = set()
@@ -241,7 +254,7 @@ class MainWindow(QMainWindow):
         self._refresh_usb_tracking()
 
         self._health_check_timer = QTimer(self)
-        self._health_check_timer.timeout.connect(self._run_health_checks)
+        self._health_check_timer.timeout.connect(self._health_check_tick)
         self._health_check_timer.start(HEALTH_CHECK_INTERVAL_MS)
 
     # ------------------------------------------------------------------ #
@@ -515,7 +528,25 @@ class MainWindow(QMainWindow):
         self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
         self._advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self._advanced_toggle.clicked.connect(self._on_advanced_toggled)
-        outer.addWidget(self._advanced_toggle)
+
+        self._watchdog_toggle = QToolButton()
+        self._watchdog_toggle.setText(_("Watchdog configuration"))
+        self._watchdog_toggle.setToolTip(
+            _(
+                "Turn the periodic responsiveness check of the running rigctld/rotctld "
+                "on or off, and set how often it runs."
+            )
+        )
+        self._watchdog_toggle.setCheckable(True)
+        self._watchdog_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self._watchdog_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._watchdog_toggle.clicked.connect(self._on_watchdog_toggled)
+
+        toggles_row = QHBoxLayout()
+        toggles_row.addWidget(self._advanced_toggle)
+        toggles_row.addWidget(self._watchdog_toggle)
+        toggles_row.addStretch(1)
+        outer.addLayout(toggles_row)
 
         advanced_tooltip = _(
             'Usually fine left as "(Not set)". Only change if your rig/rotator\'s '
@@ -554,6 +585,30 @@ class MainWindow(QMainWindow):
             advanced_row.addWidget(widget)
         self._advanced_widget.setVisible(False)
         outer.addWidget(self._advanced_widget)
+
+        self._watchdog_widget = QWidget()
+        watchdog_row = QHBoxLayout(self._watchdog_widget)
+        watchdog_row.setContentsMargins(0, 0, 0, 0)
+        self._watchdog_checkbox = QCheckBox(_("Enable watchdog"))
+        self._watchdog_checkbox.setToolTip(
+            _(
+                "While running, periodically sends a read-only query to rigctld/rotctld "
+                "and restarts it if it stops responding. Turn off if the periodic query "
+                "interferes with other software using the same rig."
+            )
+        )
+        self._watchdog_checkbox.toggled.connect(self._on_field_changed)
+        self._watchdog_interval_label = QLabel(_("Interval (seconds)"))
+        self._watchdog_interval_spin = QSpinBox()
+        self._watchdog_interval_spin.setRange(MIN_WATCHDOG_INTERVAL_S, MAX_WATCHDOG_INTERVAL_S)
+        self._watchdog_interval_spin.setSuffix(" s")
+        self._watchdog_interval_spin.valueChanged.connect(self._on_field_changed)
+        watchdog_row.addWidget(self._watchdog_checkbox)
+        watchdog_row.addWidget(self._watchdog_interval_label)
+        watchdog_row.addWidget(self._watchdog_interval_spin)
+        watchdog_row.addStretch(1)
+        self._watchdog_widget.setVisible(False)
+        outer.addWidget(self._watchdog_widget)
         return self._connection_group
 
     def _build_network_group(self) -> QGroupBox:
@@ -818,6 +873,22 @@ class MainWindow(QMainWindow):
         self._advanced_toggle.setToolTip(
             _("Usually not needed. Only for rigs/rotators that require non-default settings.")
         )
+        self._watchdog_toggle.setText(_("Watchdog configuration"))
+        self._watchdog_toggle.setToolTip(
+            _(
+                "Turn the periodic responsiveness check of the running rigctld/rotctld "
+                "on or off, and set how often it runs."
+            )
+        )
+        self._watchdog_checkbox.setText(_("Enable watchdog"))
+        self._watchdog_checkbox.setToolTip(
+            _(
+                "While running, periodically sends a read-only query to rigctld/rotctld "
+                "and restarts it if it stops responding. Turn off if the periodic query "
+                "interferes with other software using the same rig."
+            )
+        )
+        self._watchdog_interval_label.setText(_("Interval (seconds)"))
         advanced_tooltip = _(
             'Usually fine left as "(Not set)". Only change if your rig/rotator\'s '
             "manual specifies a particular value."
@@ -941,6 +1012,10 @@ class MainWindow(QMainWindow):
             self._usb_hotplug_checkbox.setChecked(profile.usb_hotplug)
             self._update_usb_hotplug_status(profile)
 
+            self._watchdog_checkbox.setChecked(profile.watchdog_enabled)
+            self._watchdog_interval_spin.setValue(profile.watchdog_interval_s)
+            self._watchdog_interval_spin.setEnabled(profile.watchdog_enabled)
+
             self._civ_widget.setVisible(profile.kind == ProfileKind.RIG)
             self._civ_address_edit.setText(profile.civ_address or "")
 
@@ -1040,6 +1115,12 @@ class MainWindow(QMainWindow):
     def _on_advanced_toggled(self, checked: bool) -> None:
         self._advanced_widget.setVisible(checked)
         self._advanced_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
+        )
+
+    def _on_watchdog_toggled(self, checked: bool) -> None:
+        self._watchdog_widget.setVisible(checked)
+        self._watchdog_toggle.setArrowType(
             Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
         )
 
@@ -1167,6 +1248,9 @@ class MainWindow(QMainWindow):
         profile.port = self._port_combo.currentText()
         baud_text = self._baud_combo.currentText().strip()
         profile.serial_speed = int(baud_text) if baud_text else None
+        profile.watchdog_enabled = self._watchdog_checkbox.isChecked()
+        profile.watchdog_interval_s = self._watchdog_interval_spin.value()
+        self._watchdog_interval_spin.setEnabled(profile.watchdog_enabled)
         profile.usb_hotplug = self._usb_hotplug_checkbox.isChecked()
         if profile.usb_hotplug:
             identity = identity_for_port(profile.port, self._usb_ports_resolver())
@@ -1514,9 +1598,34 @@ class MainWindow(QMainWindow):
     # for the full trace (found via a live FO-29/FTX-1 investigation with
     # FBSAT59).
     # ------------------------------------------------------------------ #
-    def _run_health_checks(self) -> None:
+    def _health_check_tick(self) -> None:
+        """Once-a-second timer callback: pick the profiles whose own watchdog
+        interval has elapsed (and whose watchdog is switched on) and probe them.
+        """
+        now = time.monotonic()
+        due: set[str] = set()
+        for profile in self._profiles:
+            if not profile.watchdog_enabled:
+                self._last_health_check.pop(profile.id, None)
+                continue
+            last = self._last_health_check.get(profile.id)
+            if last is None or now - last >= profile.watchdog_interval_s:
+                due.add(profile.id)
+        if not due:
+            return
+        probed = self._run_health_checks(due)
+        for profile_id in probed:
+            self._last_health_check[profile_id] = now
+
+    def _run_health_checks(self, only: set[str] | None = None) -> list[str]:
+        """Probe running profiles (all of them, or just those in `only`).
+        Returns the ids actually probed.
+        """
         signal = self._health_check_result
+        probed: list[str] = []
         for profile_id, process in list(self._processes.items()):
+            if only is not None and profile_id not in only:
+                continue
             if (
                 not process.is_running
                 or profile_id in self._health_check_in_flight
@@ -1529,8 +1638,9 @@ class MainWindow(QMainWindow):
                 # stop just because it's still technically running.
                 continue
             profile = self._find_profile(profile_id)
-            if profile is None:
+            if profile is None or not profile.watchdog_enabled:
                 continue
+            probed.append(profile_id)
             self._health_check_in_flight.add(profile_id)
 
             def _check(profile_id: str = profile_id, profile: Profile = profile) -> None:
@@ -1538,6 +1648,7 @@ class MainWindow(QMainWindow):
                 signal.emit(profile_id, responded)
 
             threading.Thread(target=_check, daemon=True).start()
+        return probed
 
     def _on_health_check_result(self, profile_id: str, responded_ok: bool) -> None:
         self._health_check_in_flight.discard(profile_id)

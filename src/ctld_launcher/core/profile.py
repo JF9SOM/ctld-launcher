@@ -13,6 +13,9 @@ APP_NAME = "ctld-launcher"
 
 DEFAULT_RIG_PORT = 4532
 DEFAULT_ROTATOR_PORT = 4533
+DEFAULT_WATCHDOG_INTERVAL_S = 5
+MIN_WATCHDOG_INTERVAL_S = 1
+MAX_WATCHDOG_INTERVAL_S = 600
 
 
 class ProfileKind(StrEnum):
@@ -40,6 +43,8 @@ class Profile:
     debug_level: int = 0
     log_file: str | None = None
     extra_args: list[str] = field(default_factory=list)
+    watchdog_enabled: bool = True
+    watchdog_interval_s: int = DEFAULT_WATCHDOG_INTERVAL_S
     usb_hotplug: bool = False
     usb_vid: int | None = None
     usb_pid: int | None = None

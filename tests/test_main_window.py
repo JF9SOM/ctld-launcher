@@ -390,6 +390,71 @@ def test_no_restart_below_health_check_failure_threshold(  # type: ignore[no-unt
         window.stop_all()
 
 
+def test_watchdog_disabled_profile_is_never_probed(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    profile.watchdog_enabled = False
+    calls: list[str] = []
+    monkeypatch.setattr(
+        "ctld_launcher.ui.main_window.probe_daemon",
+        lambda p, **k: (calls.append(p.id), (True, ""))[1],
+    )
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+        window._health_check_tick()
+        window._run_health_checks()
+        assert calls == []
+        assert window._health_check_in_flight == set()
+    finally:
+        window.stop_all()
+
+
+def test_health_check_tick_respects_per_profile_interval(  # type: ignore[no-untyped-def]
+    tmp_path, qtbot, monkeypatch
+) -> None:
+    FAKE_CTLD.chmod(FAKE_CTLD.stat().st_mode | stat.S_IXUSR)
+    window = _make_window(tmp_path, qtbot, executable_resolver=lambda kind: str(FAKE_CTLD))
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    profile.watchdog_interval_s = 30
+    calls: list[str] = []
+    monkeypatch.setattr(
+        "ctld_launcher.ui.main_window.probe_daemon",
+        lambda p, **k: (calls.append(p.id), (True, ""))[1],
+    )
+    try:
+        window._start_profile(profile)
+        qtbot.waitUntil(lambda: window.is_running(profile.id), timeout=1000)
+        window._health_check_tick()
+        qtbot.waitUntil(lambda: profile.id not in window._health_check_in_flight, timeout=1000)
+        window._health_check_tick()  # well inside the 30 s interval -> skipped
+        qtbot.wait(100)
+        assert calls == [profile.id]
+    finally:
+        window.stop_all()
+
+
+def test_watchdog_settings_persist_from_form(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
+    window = _make_window(tmp_path, qtbot)
+    window._add_profile(ProfileKind.RIG)
+    profile = window.profiles[0]
+    assert profile.watchdog_enabled is True
+    assert profile.watchdog_interval_s == 5
+
+    window._watchdog_interval_spin.setValue(20)
+    window._watchdog_checkbox.setChecked(False)
+
+    saved = ProfileStore(path=tmp_path / "profiles.json").load()[0]
+    assert saved.watchdog_enabled is False
+    assert saved.watchdog_interval_s == 20
+    assert window._watchdog_interval_spin.isEnabled() is False
+
+
 def test_crash_restart_on_unexpected_exit(tmp_path, qtbot) -> None:  # type: ignore[no-untyped-def]
     # Regression test: a daemon that exits on its own (crash), as opposed to
     # hanging, should be restarted immediately (no polling delay -- it's an
