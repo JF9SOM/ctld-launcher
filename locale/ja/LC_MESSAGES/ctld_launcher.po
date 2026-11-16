@@ -572,3 +572,24 @@ msgstr "起動中、rigctld/rotctldへ定期的に読み取り専用の問い合
 
 msgid "Interval (seconds)"
 msgstr "間隔(秒)"
+
+msgid "Web app bridge"
+msgstr "Webアプリ連携"
+
+msgid "Start with rigctld"
+msgstr "rigctldと同時に起動"
+
+msgid "Browsers cannot talk to rigctld's TCP port directly. When on, a small local relay (127.0.0.1 only) starts and stops together with rigctld so browser apps such as DeepCW can send CW. Takes effect at the next start."
+msgstr "ブラウザはrigctldのTCPポートに直接接続できません。オンにすると、小さな中継(127.0.0.1のみ)がrigctldと同時に起動・停止し、DeepCWなどのブラウザアプリからCWを送信できるようになります。次回の起動から有効になります。"
+
+msgid "Allowed origins"
+msgstr "許可するオリジン"
+
+msgid "Comma-separated web page origins allowed to use the relay, e.g. http://localhost:5173,https://your-name.github.io"
+msgstr "中継の利用を許可するWebページのオリジン(カンマ区切り)。例: http://localhost:5173,https://your-name.github.io"
+
+msgid "[ctld-launcher] Could not start the web app bridge on port {port}: {error}"
+msgstr "[ctld-launcher] ポート{port}でWebアプリ連携を起動できませんでした: {error}"
+
+msgid "[ctld-launcher] Web app bridge listening on http://127.0.0.1:{port}"
+msgstr "[ctld-launcher] Webアプリ連携が http://127.0.0.1:{port} で待ち受けています"

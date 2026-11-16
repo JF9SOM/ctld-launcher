@@ -491,3 +491,24 @@ msgstr ""
 
 msgid "Interval (seconds)"
 msgstr ""
+
+msgid "Web app bridge"
+msgstr ""
+
+msgid "Start with rigctld"
+msgstr ""
+
+msgid "Browsers cannot talk to rigctld's TCP port directly. When on, a small local relay (127.0.0.1 only) starts and stops together with rigctld so browser apps such as DeepCW can send CW. Takes effect at the next start."
+msgstr ""
+
+msgid "Allowed origins"
+msgstr ""
+
+msgid "Comma-separated web page origins allowed to use the relay, e.g. http://localhost:5173,https://your-name.github.io"
+msgstr ""
+
+msgid "[ctld-launcher] Could not start the web app bridge on port {port}: {error}"
+msgstr ""
+
+msgid "[ctld-launcher] Web app bridge listening on http://127.0.0.1:{port}"
+msgstr ""

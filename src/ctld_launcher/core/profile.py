@@ -16,6 +16,8 @@ DEFAULT_ROTATOR_PORT = 4533
 DEFAULT_WATCHDOG_INTERVAL_S = 5
 MIN_WATCHDOG_INTERVAL_S = 1
 MAX_WATCHDOG_INTERVAL_S = 600
+DEFAULT_WEB_BRIDGE_PORT = 4540
+DEFAULT_WEB_BRIDGE_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 
 
 class ProfileKind(StrEnum):
@@ -45,6 +47,9 @@ class Profile:
     extra_args: list[str] = field(default_factory=list)
     watchdog_enabled: bool = True
     watchdog_interval_s: int = DEFAULT_WATCHDOG_INTERVAL_S
+    web_bridge_enabled: bool = False
+    web_bridge_port: int = DEFAULT_WEB_BRIDGE_PORT
+    web_bridge_origins: str = DEFAULT_WEB_BRIDGE_ORIGINS
     usb_hotplug: bool = False
     usb_vid: int | None = None
     usb_pid: int | None = None

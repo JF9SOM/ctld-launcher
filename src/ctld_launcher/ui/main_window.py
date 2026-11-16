@@ -55,6 +55,7 @@ from ctld_launcher.core.process_manager import (
     CtldProcess,
     build_command,
     build_test_command,
+    daemon_host_port,
     probe_daemon,
     serial_port_from_command,
 )
@@ -68,6 +69,7 @@ from ctld_launcher.core.profile import (
 from ctld_launcher.core.serial_ports import list_serial_ports
 from ctld_launcher.core.subprocess_utils import NO_WINDOW_FLAGS
 from ctld_launcher.core.usb_watch import UsbHotplugTracker, UsbIdentity, identity_for_port
+from ctld_launcher.core.web_bridge import WebBridge
 from ctld_launcher.i18n import _, get_language, set_language
 from ctld_launcher.version import get_version
 
@@ -214,6 +216,7 @@ class MainWindow(QMainWindow):
         self._store = store or ProfileStore()
         self._profiles: list[Profile] = self._store.load()
         self._processes: dict[str, CtldProcess] = {}
+        self._web_bridges: dict[str, WebBridge] = {}
         self._sidebar_name_labels: dict[str, QLabel] = {}
         self._executable_resolver = executable_resolver
         self._test_executable_resolver = test_executable_resolver
@@ -373,6 +376,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._build_model_group())
         layout.addWidget(self._build_connection_group())
         layout.addWidget(self._build_network_group())
+        layout.addWidget(self._build_web_bridge_group())
         layout.addWidget(self._build_debug_group())
         layout.addWidget(self._build_extra_args_group())
 
@@ -632,6 +636,38 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._listen_address_edit, stretch=1)
         layout.addWidget(self._listen_port_spin)
         return self._network_group
+
+    def _build_web_bridge_group(self) -> QGroupBox:
+        self._web_bridge_group = QGroupBox(_("Web app bridge"))
+        layout = QHBoxLayout(self._web_bridge_group)
+        self._web_bridge_checkbox = QCheckBox(_("Start with rigctld"))
+        self._web_bridge_checkbox.setToolTip(
+            _(
+                "Browsers cannot talk to rigctld's TCP port directly. When on, a small "
+                "local relay (127.0.0.1 only) starts and stops together with rigctld so "
+                "browser apps such as DeepCW can send CW. Takes effect at the next start."
+            )
+        )
+        self._web_bridge_checkbox.toggled.connect(self._on_field_changed)
+        self._web_bridge_port_label = QLabel(_("Port"))
+        self._web_bridge_port_spin = QSpinBox()
+        self._web_bridge_port_spin.setRange(1, 65535)
+        self._web_bridge_port_spin.valueChanged.connect(self._on_field_changed)
+        self._web_bridge_origins_label = QLabel(_("Allowed origins"))
+        self._web_bridge_origins_edit = QLineEdit()
+        self._web_bridge_origins_edit.setToolTip(
+            _(
+                "Comma-separated web page origins allowed to use the relay, e.g. "
+                "http://localhost:5173,https://your-name.github.io"
+            )
+        )
+        self._web_bridge_origins_edit.editingFinished.connect(self._on_field_changed)
+        layout.addWidget(self._web_bridge_checkbox)
+        layout.addWidget(self._web_bridge_port_label)
+        layout.addWidget(self._web_bridge_port_spin)
+        layout.addWidget(self._web_bridge_origins_label)
+        layout.addWidget(self._web_bridge_origins_edit, stretch=1)
+        return self._web_bridge_group
 
     def _build_debug_group(self) -> QGroupBox:
         self._debug_group = QGroupBox(_("Debug"))
@@ -902,6 +938,10 @@ class MainWindow(QMainWindow):
         self._handshake_label.setText(_("Flow control"))
         self._handshake_combo.setToolTip(advanced_tooltip)
 
+        self._web_bridge_group.setTitle(_("Web app bridge"))
+        self._web_bridge_checkbox.setText(_("Start with rigctld"))
+        self._web_bridge_port_label.setText(_("Port"))
+        self._web_bridge_origins_label.setText(_("Allowed origins"))
         self._network_group.setTitle(_("Network"))
         self._listen_address_label.setText(_("Listen address"))
         self._listen_address_edit.setToolTip(
@@ -978,6 +1018,9 @@ class MainWindow(QMainWindow):
             self._test_connection_button,
             self._listen_address_edit,
             self._listen_port_spin,
+            self._web_bridge_checkbox,
+            self._web_bridge_port_spin,
+            self._web_bridge_origins_edit,
             self._debug_level_combo,
             self._log_file_edit,
             self._extra_args_edit,
@@ -1029,6 +1072,10 @@ class MainWindow(QMainWindow):
             self._listen_address_edit.setText(profile.listen_address)
             self._listen_port_spin.setValue(profile.listen_port)
             self._listen_port_spin.setToolTip(self._listen_port_tooltip(profile.kind))
+            self._web_bridge_group.setVisible(profile.kind == ProfileKind.RIG)
+            self._web_bridge_checkbox.setChecked(profile.web_bridge_enabled)
+            self._web_bridge_port_spin.setValue(profile.web_bridge_port)
+            self._web_bridge_origins_edit.setText(profile.web_bridge_origins)
             self._debug_level_combo.setCurrentIndex(profile.debug_level)
             self._log_file_edit.setText(profile.log_file or "")
             self._extra_args_edit.setText(shlex.join(profile.extra_args))
@@ -1268,6 +1315,9 @@ class MainWindow(QMainWindow):
         profile.serial_handshake = _combo_or_none(self._handshake_combo)
         profile.listen_address = self._listen_address_edit.text()
         profile.listen_port = self._listen_port_spin.value()
+        profile.web_bridge_enabled = self._web_bridge_checkbox.isChecked()
+        profile.web_bridge_port = self._web_bridge_port_spin.value()
+        profile.web_bridge_origins = self._web_bridge_origins_edit.text()
         profile.debug_level = self._debug_level_combo.currentIndex()
         profile.log_file = self._log_file_edit.text() or None
         profile.extra_args = shlex.split(self._extra_args_edit.text())
@@ -1335,15 +1385,47 @@ class MainWindow(QMainWindow):
         )
         process.start()
         self._processes[profile.id] = process
+        self._start_web_bridge(profile)
         self._refresh_sidebar_item(profile)
         if profile.id == self._current_id:
             self._update_status_and_buttons()
         self.state_changed.emit()
 
+    def _start_web_bridge(self, profile: Profile) -> None:
+        """Start the browser relay alongside rigctld, if this rig profile wants it."""
+        self._stop_web_bridge(profile.id)
+        if profile.kind != ProfileKind.RIG or not profile.web_bridge_enabled:
+            return
+        host, port = daemon_host_port(profile)
+        bridge = WebBridge(host, port, profile.web_bridge_port, profile.web_bridge_origins)
+        try:
+            bridge.start()
+        except OSError as exc:
+            self._log_line.emit(
+                profile.id,
+                _(
+                    "[ctld-launcher] Could not start the web app bridge on port {port}: {error}"
+                ).format(port=profile.web_bridge_port, error=exc),
+            )
+            return
+        self._web_bridges[profile.id] = bridge
+        self._log_line.emit(
+            profile.id,
+            _("[ctld-launcher] Web app bridge listening on http://127.0.0.1:{port}").format(
+                port=bridge.port
+            ),
+        )
+
+    def _stop_web_bridge(self, profile_id: str) -> None:
+        bridge = self._web_bridges.pop(profile_id, None)
+        if bridge is not None:
+            bridge.stop()
+
     def _stop_profile(self, profile_id: str) -> None:
         process = self._processes.get(profile_id)
         if process is None:
             return
+        self._stop_web_bridge(profile_id)
         # Tell _on_process_exited this exit was requested, not a crash, so
         # it doesn't try to "helpfully" restart what was just stopped.
         self._intentional_stop.add(profile_id)
@@ -1732,6 +1814,7 @@ class MainWindow(QMainWindow):
             self._log_view.appendPlainText(line)
 
     def _on_process_exited(self, profile_id: str, exit_code: int) -> None:
+        self._stop_web_bridge(profile_id)
         profile = self._find_profile(profile_id)
         if profile is not None:
             self._refresh_sidebar_item(profile)
