@@ -585,6 +585,19 @@ msgstr "ブラウザはrigctldのTCPポートに直接接続できません。�
 msgid "Allowed origins"
 msgstr "許可するオリジン"
 
+msgid "ADIF UDP port"
+msgstr "ADIF UDPポート"
+
+msgid "Off"
+msgstr "オフ"
+
+msgid ""
+"Forward QSO log records (ADIF) from the web app to this UDP port on "
+"127.0.0.1, e.g. 2333 for WavelogGate. Off disables forwarding."
+msgstr ""
+"Webアプリからのログ(ADIF)を、127.0.0.1のこのUDPポートへ転送します。"
+"例: WavelogGateなら2333。オフにすると転送しません。"
+
 msgid "Comma-separated web page origins allowed to use the relay, e.g. http://localhost:5173,https://your-name.github.io"
 msgstr "中継の利用を許可するWebページのオリジン(カンマ区切り)。例: http://localhost:5173,https://your-name.github.io"
 

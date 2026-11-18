@@ -504,6 +504,17 @@ msgstr ""
 msgid "Allowed origins"
 msgstr ""
 
+msgid "ADIF UDP port"
+msgstr ""
+
+msgid "Off"
+msgstr ""
+
+msgid ""
+"Forward QSO log records (ADIF) from the web app to this UDP port on "
+"127.0.0.1, e.g. 2333 for WavelogGate. Off disables forwarding."
+msgstr ""
+
 msgid "Comma-separated web page origins allowed to use the relay, e.g. http://localhost:5173,https://your-name.github.io"
 msgstr ""
 

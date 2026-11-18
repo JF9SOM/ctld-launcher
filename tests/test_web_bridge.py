@@ -11,6 +11,7 @@ import pytest
 from ctld_launcher.core.profile import Profile, ProfileKind
 from ctld_launcher.core.web_bridge import (
     WebBridge,
+    is_adif_record,
     is_command_allowed,
     normalize_command,
     parse_origins,
@@ -81,7 +82,11 @@ def test_parse_origins_normalizes() -> None:
         ("\\send_morse CQ DE JF9SOM", True),
         ("\\stop_morse", True),
         ("L KEYSPD 20", True),
+        ("\\get_freq", True),
+        ("\\get_mode", True),
         ("F 14074000", False),
+        ("M CW 500", False),
+        ("\\set_freq 7000000", False),
         ("T 1", False),
         ("\\set_freq 7000000", False),
         ("L KEYSPD 20\nF 1", False),
@@ -167,3 +172,58 @@ def test_bridge_keeps_padding_space_for_single_char_morse(
     finally:
         bridge.stop()
     assert received == ["\\send_morse ? "]
+
+
+def _post_path(port: int, path: str, body: str, origin: str) -> tuple[int, str]:
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{port}{path}",
+        data=body.encode(),
+        headers={"Origin": origin, "Content-Type": "text/plain"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return resp.status, resp.read().decode()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode()
+
+
+def test_is_adif_record() -> None:
+    assert is_adif_record("<call:6>JA1XXX <eor>")
+    assert is_adif_record("<call:6>JA1XXX <EOR>\n")
+    assert not is_adif_record("<call:6>JA1XXX")
+    assert not is_adif_record("x" * 5000 + "<eor>")
+    assert not is_adif_record("<call:1>\x00 <eor>")
+
+
+def test_bridge_forwards_adif_as_udp() -> None:
+    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp.bind(("127.0.0.1", 0))
+    udp.settimeout(3)
+    bridge = WebBridge("127.0.0.1", 1, 0, "http://localhost:5173", adif_port=udp.getsockname()[1])
+    bridge.start()
+    record = "<call:6>JA1XXX <rst_sent:3>599 <eor>"
+    try:
+        status, _body = _post_path(bridge.port, "/adif", record, "http://localhost:5173")
+        data, _addr = udp.recvfrom(4096)
+    finally:
+        bridge.stop()
+        udp.close()
+    assert status == 200
+    assert data.decode() == record
+
+
+def test_bridge_adif_rejections() -> None:
+    bridge = WebBridge("127.0.0.1", 1, 0, "http://localhost:5173", adif_port=0)
+    bridge.start()
+    try:
+        assert _post_path(bridge.port, "/adif", "<eor>", "http://localhost:5173")[0] == 503
+    finally:
+        bridge.stop()
+    bridge = WebBridge("127.0.0.1", 1, 0, "http://localhost:5173", adif_port=9)
+    bridge.start()
+    try:
+        assert _post_path(bridge.port, "/adif", "no record", "http://localhost:5173")[0] == 400
+        assert _post_path(bridge.port, "/adif", "<eor>", "https://evil.example")[0] == 403
+    finally:
+        bridge.stop()

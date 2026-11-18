@@ -662,9 +662,22 @@ class MainWindow(QMainWindow):
             )
         )
         self._web_bridge_origins_edit.editingFinished.connect(self._on_field_changed)
+        self._web_bridge_adif_label = QLabel(_("ADIF UDP port"))
+        self._web_bridge_adif_spin = QSpinBox()
+        self._web_bridge_adif_spin.setRange(0, 65535)
+        self._web_bridge_adif_spin.setSpecialValueText(_("Off"))
+        self._web_bridge_adif_spin.setToolTip(
+            _(
+                "Forward QSO log records (ADIF) from the web app to this UDP port on "
+                "127.0.0.1, e.g. 2333 for WavelogGate. Off disables forwarding."
+            )
+        )
+        self._web_bridge_adif_spin.valueChanged.connect(self._on_field_changed)
         layout.addWidget(self._web_bridge_checkbox)
         layout.addWidget(self._web_bridge_port_label)
         layout.addWidget(self._web_bridge_port_spin)
+        layout.addWidget(self._web_bridge_adif_label)
+        layout.addWidget(self._web_bridge_adif_spin)
         layout.addWidget(self._web_bridge_origins_label)
         layout.addWidget(self._web_bridge_origins_edit, stretch=1)
         return self._web_bridge_group
@@ -941,6 +954,8 @@ class MainWindow(QMainWindow):
         self._web_bridge_group.setTitle(_("Web app bridge"))
         self._web_bridge_checkbox.setText(_("Start with rigctld"))
         self._web_bridge_port_label.setText(_("Port"))
+        self._web_bridge_adif_label.setText(_("ADIF UDP port"))
+        self._web_bridge_adif_spin.setSpecialValueText(_("Off"))
         self._web_bridge_origins_label.setText(_("Allowed origins"))
         self._network_group.setTitle(_("Network"))
         self._listen_address_label.setText(_("Listen address"))
@@ -1020,6 +1035,7 @@ class MainWindow(QMainWindow):
             self._listen_port_spin,
             self._web_bridge_checkbox,
             self._web_bridge_port_spin,
+            self._web_bridge_adif_spin,
             self._web_bridge_origins_edit,
             self._debug_level_combo,
             self._log_file_edit,
@@ -1075,6 +1091,7 @@ class MainWindow(QMainWindow):
             self._web_bridge_group.setVisible(profile.kind == ProfileKind.RIG)
             self._web_bridge_checkbox.setChecked(profile.web_bridge_enabled)
             self._web_bridge_port_spin.setValue(profile.web_bridge_port)
+            self._web_bridge_adif_spin.setValue(profile.web_bridge_adif_port)
             self._web_bridge_origins_edit.setText(profile.web_bridge_origins)
             self._debug_level_combo.setCurrentIndex(profile.debug_level)
             self._log_file_edit.setText(profile.log_file or "")
@@ -1317,6 +1334,7 @@ class MainWindow(QMainWindow):
         profile.listen_port = self._listen_port_spin.value()
         profile.web_bridge_enabled = self._web_bridge_checkbox.isChecked()
         profile.web_bridge_port = self._web_bridge_port_spin.value()
+        profile.web_bridge_adif_port = self._web_bridge_adif_spin.value()
         profile.web_bridge_origins = self._web_bridge_origins_edit.text()
         profile.debug_level = self._debug_level_combo.currentIndex()
         profile.log_file = self._log_file_edit.text() or None
@@ -1397,7 +1415,13 @@ class MainWindow(QMainWindow):
         if profile.kind != ProfileKind.RIG or not profile.web_bridge_enabled:
             return
         host, port = daemon_host_port(profile)
-        bridge = WebBridge(host, port, profile.web_bridge_port, profile.web_bridge_origins)
+        bridge = WebBridge(
+            host,
+            port,
+            profile.web_bridge_port,
+            profile.web_bridge_origins,
+            adif_port=profile.web_bridge_adif_port,
+        )
         try:
             bridge.start()
         except OSError as exc:

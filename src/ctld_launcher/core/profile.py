@@ -17,6 +17,7 @@ DEFAULT_WATCHDOG_INTERVAL_S = 5
 MIN_WATCHDOG_INTERVAL_S = 1
 MAX_WATCHDOG_INTERVAL_S = 600
 DEFAULT_WEB_BRIDGE_PORT = 4540
+DEFAULT_WEB_BRIDGE_ADIF_PORT = 2333  # WavelogGate's default UDP port; 0 = off
 DEFAULT_WEB_BRIDGE_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173,https://jf9som.github.io"
 
 
@@ -50,6 +51,7 @@ class Profile:
     web_bridge_enabled: bool = False
     web_bridge_port: int = DEFAULT_WEB_BRIDGE_PORT
     web_bridge_origins: str = DEFAULT_WEB_BRIDGE_ORIGINS
+    web_bridge_adif_port: int = DEFAULT_WEB_BRIDGE_ADIF_PORT
     usb_hotplug: bool = False
     usb_vid: int | None = None
     usb_pid: int | None = None

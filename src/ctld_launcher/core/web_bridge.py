@@ -3,13 +3,15 @@
 Browsers cannot open raw TCP sockets, so they cannot talk to rigctld's text
 protocol directly. This relay accepts ``POST /cmd`` with a single rigctld
 command as the body, forwards it to the running rigctld over TCP and returns
-rigctld's reply. It is started and stopped together with the rigctld process
-of the profile that enables it.
+rigctld's reply. ``POST /adif`` forwards one ADIF record as a UDP datagram to
+127.0.0.1 (e.g. WavelogGate on port 2333), since browsers cannot send UDP. It
+is started and stopped together with the rigctld process of the profile that
+enables it.
 
 Safety: it binds to loopback only, rejects browser requests whose ``Origin``
 is not on the allow-list (a plain-text POST is a CORS "simple request", so the
 check must happen before the command is executed, not just in the CORS
-headers), and only forwards a small allow-list of keying commands.
+headers), and only forwards a small allow-list of keying and read-only commands.
 """
 
 from __future__ import annotations
@@ -21,11 +23,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 BIND_ADDRESS = "127.0.0.1"
 MAX_BODY_BYTES = 1024
+MAX_ADIF_BYTES = 4096
 
-# Commands the browser may send: CW keying only. Anything else (frequency,
-# mode, PTT, ...) is refused so a web page can never retune the rig.
+# Commands the browser may send: CW keying plus read-only frequency/mode
+# queries. Anything else (set frequency, mode, PTT, ...) is refused so a web
+# page can never retune the rig.
 _ALLOWED = re.compile(
-    r"^(?:\\send_morse\s.+|\\stop_morse|L\s+KEYSPD\s+\d{1,3}|\\get_level\s+KEYSPD)$",
+    r"^(?:\\send_morse\s.+|\\stop_morse|L\s+KEYSPD\s+\d{1,3}|\\get_level\s+KEYSPD"
+    r"|\\get_freq|\\get_mode)$",
     re.IGNORECASE,
 )
 _RPRT = re.compile(r"RPRT\s+-?\d+\s*$")
@@ -46,6 +51,21 @@ def normalize_command(raw: str) -> str:
     if raw[-1:].isspace() and command.lower().startswith("\\send_morse "):
         command += " "
     return command
+
+
+def is_adif_record(text: str) -> bool:
+    """True for a single, plausible ADIF record (must end with <eor>)."""
+    return (
+        "\x00" not in text
+        and len(text.encode("utf-8")) <= MAX_ADIF_BYTES
+        and re.search(r"<eor>\s*$", text, re.IGNORECASE) is not None
+    )
+
+
+def send_adif_udp(port: int, text: str) -> None:
+    """Send one ADIF record as a UDP datagram to loopback."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.sendto(text.encode("utf-8"), (BIND_ADDRESS, port))
 
 
 def is_command_allowed(command: str) -> bool:
@@ -75,7 +95,10 @@ def forward_to_rigctld(host: str, port: int, command: str, timeout: float = 3.0)
 class WebBridge:
     """Owns one relay HTTP server thread. start() is idempotent (restarts)."""
 
-    def __init__(self, rig_host: str, rig_port: int, port: int, origins: str) -> None:
+    def __init__(
+        self, rig_host: str, rig_port: int, port: int, origins: str, adif_port: int = 0
+    ) -> None:
+        self._adif_port = adif_port
         self._rig_host = rig_host
         self._rig_port = rig_port
         self._port = port
@@ -123,10 +146,32 @@ class WebBridge:
                     return
                 self._reply(204, origin=origin)
 
+            def _post_adif(self, origin: str | None) -> None:
+                if not bridge._adif_port:
+                    self._reply(503, "ADIF forwarding is off", origin)
+                    return
+                length = int(self.headers.get("Content-Length") or 0)
+                if length > MAX_ADIF_BYTES:
+                    self._reply(413, origin=origin)
+                    return
+                text = self.rfile.read(length).decode("utf-8", "replace")
+                if not is_adif_record(text):
+                    self._reply(400, "not an ADIF record", origin)
+                    return
+                try:
+                    send_adif_udp(bridge._adif_port, text)
+                except OSError as exc:
+                    self._reply(502, str(exc), origin)
+                    return
+                self._reply(200, "OK", origin)
+
             def do_POST(self) -> None:  # noqa: N802
                 origin = self._origin()
                 if origin is not None and origin not in bridge._origins:
                     self._reply(403, "origin not allowed")
+                    return
+                if self.path == "/adif":
+                    self._post_adif(origin)
                     return
                 if self.path != "/cmd":
                     self._reply(404, origin=origin)
