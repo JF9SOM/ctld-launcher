@@ -12,6 +12,7 @@ from ctld_launcher.core.profile import Profile, ProfileKind
 from ctld_launcher.core.web_bridge import (
     WebBridge,
     is_command_allowed,
+    normalize_command,
     parse_origins,
 )
 
@@ -33,7 +34,7 @@ def fake_rigctld() -> Iterator[tuple[int, list[str]]]:
             except (TimeoutError, OSError):
                 continue
             with conn:
-                received.append(conn.recv(1024).decode().strip())
+                received.append(conn.recv(1024).decode().rstrip("\r\n"))
                 conn.sendall(b"RPRT 0\n")
 
     thread = threading.Thread(target=serve, daemon=True)
@@ -138,3 +139,31 @@ def test_start_is_idempotent_and_stop_releases() -> None:
     assert bridge.is_running
     bridge.stop()
     assert not bridge.is_running
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("\\send_morse CQ   DE\tJF9SOM\n", "\\send_morse CQ DE JF9SOM "),
+        ("\\send_morse ? ", "\\send_morse ? "),
+        ("\\send_morse ?", "\\send_morse ?"),
+        ("L KEYSPD 20 ", "L KEYSPD 20"),
+        ("\\stop_morse  ", "\\stop_morse"),
+    ],
+)
+def test_normalize_command_keeps_send_morse_trailing_space(raw: str, expected: str) -> None:
+    assert normalize_command(raw) == expected
+    assert is_command_allowed(normalize_command(raw))
+
+
+def test_bridge_keeps_padding_space_for_single_char_morse(
+    fake_rigctld: tuple[int, list[str]],
+) -> None:
+    rig_port, received = fake_rigctld
+    bridge = WebBridge("127.0.0.1", rig_port, 0, "http://localhost:5173")
+    bridge.start()
+    try:
+        _post(bridge.port, "\\send_morse ? ", "http://localhost:5173")
+    finally:
+        bridge.stop()
+    assert received == ["\\send_morse ? "]

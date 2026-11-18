@@ -35,6 +35,19 @@ def parse_origins(value: str) -> frozenset[str]:
     return frozenset(o.strip().rstrip("/") for o in value.split(",") if o.strip())
 
 
+def normalize_command(raw: str) -> str:
+    """Collapse whitespace; keep one trailing space on \\send_morse.
+
+    Hamlib treats a one-character send_morse message (e.g. "?") as a keyer
+    memory number on Yaesu rigs, so the web app pads it with a space. That
+    space must survive the clean-up.
+    """
+    command = " ".join(raw.split())
+    if raw[-1:].isspace() and command.lower().startswith("\\send_morse "):
+        command += " "
+    return command
+
+
 def is_command_allowed(command: str) -> bool:
     return bool(_ALLOWED.match(command))
 
@@ -122,7 +135,7 @@ class WebBridge:
                 if length > MAX_BODY_BYTES:
                     self._reply(413, origin=origin)
                     return
-                command = " ".join(self.rfile.read(length).decode("utf-8", "replace").split())
+                command = normalize_command(self.rfile.read(length).decode("utf-8", "replace"))
                 if not is_command_allowed(command):
                     self._reply(403, "command not allowed", origin)
                     return
