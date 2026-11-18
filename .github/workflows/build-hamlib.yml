@@ -349,7 +349,7 @@ jobs:
   # ------------------------------------------------------------------ #
   build-macos:
     name: Build Hamlib (macOS)
-    runs-on: macos-14
+    runs-on: macos-15
     permissions:
       contents: write
     steps:
@@ -378,7 +378,7 @@ jobs:
           HAMLIB_VER="${HAMLIB_VERSION}"
           PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
           PYTAG=$(python3 -c "import sys; print(f'py{sys.version_info.major}{sys.version_info.minor}')")
-          ARCH=$(uname -m)  # arm64 on the macos-14 runner
+          ARCH=$(uname -m)  # arm64 on the macos-15 runner
 
           PY_INC=$(python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
           PY_EXT=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
